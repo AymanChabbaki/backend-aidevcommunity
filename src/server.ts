@@ -24,7 +24,7 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:8081', 'http://localhost:3000'],
+  origin: ['http://localhost:5173', 'http://localhost:8081', 'http://localhost:3000','https://frontend-aidevcommunity.vercel.app'],
   credentials: true
 }));
 app.use(express.json());
