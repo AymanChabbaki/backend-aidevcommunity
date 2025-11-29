@@ -1,0 +1,267 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  displayName   String    @map("display_name")
+  role          Role      @default(USER)
+  staffRole     String?   @map("staff_role")
+  photoUrl      String?   @map("photo_url")
+  bio           String?   @db.Text
+  skills        Json?
+  github        String?
+  linkedin      String?
+  twitter       String?
+  publicProfile Boolean   @default(true) @map("public_profile")
+  locale        String    @default("en")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  registrations    Registration[]
+  organizedEvents  Event[]         @relation("EventOrganizer")
+  formResponses    FormResponse[]
+  votes            Vote[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  refreshTokens    RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Event {
+  id           String       @id @default(uuid())
+  title        String
+  description  String       @db.Text
+  locationType LocationType @default(PHYSICAL) @map("location_type")
+  locationText String       @map("location_text")
+  startAt      DateTime     @map("start_at")
+  endAt        DateTime     @map("end_at")
+  capacity     Int
+  imageUrl     String?      @db.VarChar(500) @map("image_url")
+  tags         Json?
+  organizerId  String       @map("organizer_id")
+  status       EventStatus  @default(UPCOMING)
+  category     String?
+  speaker      String?
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  organizer     User           @relation("EventOrganizer", fields: [organizerId], references: [id])
+  registrations Registration[]
+  forms         Form[]
+
+  @@map("events")
+}
+
+model Registration {
+  id          String             @id @default(uuid())
+  eventId     String             @map("event_id")
+  userId      String             @map("user_id")
+  status      RegistrationStatus @default(REGISTERED)
+  badgeUrl    String?            @map("badge_url")
+  qrToken     String             @unique @map("qr_token")
+  checkedInAt DateTime?          @map("checked_in_at")
+  createdAt   DateTime           @default(now()) @map("created_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@map("registrations")
+}
+
+model Form {
+  id          String   @id @default(uuid())
+  title       String
+  description String?  @db.Text
+  fields      Json
+  eventId     String?  @map("event_id")
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  event     Event?         @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  responses FormResponse[]
+
+  @@map("forms")
+}
+
+model FormResponse {
+  id          String   @id @default(uuid())
+  formId      String   @map("form_id")
+  userId      String?  @map("user_id")
+  answers     Json
+  attachments Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  form Form  @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("form_responses")
+}
+
+model Poll {
+  id         String           @id @default(uuid())
+  question   String
+  options    Json
+  startAt    DateTime         @map("start_at")
+  endAt      DateTime         @map("end_at")
+  visibility PollVisibility   @default(PUBLIC)
+  status     PollStatus       @default(ACTIVE)
+  createdBy  String           @map("created_by")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  votes Vote[]
+
+  @@map("polls")
+}
+
+model Vote {
+  id        String   @id @default(uuid())
+  pollId    String   @map("poll_id")
+  userId    String   @map("user_id")
+  optionId  String   @map("option_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+  @@map("votes")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  content   String           @db.Text
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String   @map("actor_id")
+  action     String
+  entity     String
+  entityId   String   @map("entity_id")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@map("audit_logs")
+}
+
+enum Role {
+  USER
+  STAFF
+  ADMIN
+}
+
+enum LocationType {
+  PHYSICAL
+  VIRTUAL
+  HYBRID
+}
+
+enum EventStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum RegistrationStatus {
+  REGISTERED
+  APPROVED
+  CANCELLED
+  WAITLIST
+}
+
+enum PollVisibility {
+  PUBLIC
+  MEMBERS_ONLY
+  ANONYMOUS
+}
+
+enum PollStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum NotificationType {
+  EVENT_CONFIRMATION
+  EVENT_REMINDER
+  EVENT_UPDATE
+  SYSTEM
+  FORM_SUBMISSION
+}
+
+model Setting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  category  String   // general, notifications, security, email
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+model HomeContent {
+  id                String   @id @default(uuid())
+  heroTitle         String   @map("hero_title") @db.VarChar(200)
+  heroSubtitle      String   @map("hero_subtitle") @db.VarChar(500)
+  heroCtaText       String   @default("Get Started") @map("hero_cta_text") @db.VarChar(50)
+  heroCtaLink       String   @default("/events") @map("hero_cta_link") @db.VarChar(200)
+  featuredEventIds  Json     @map("featured_event_ids") // array of event IDs
+  showPastEvents    Boolean  @default(true) @map("show_past_events")
+  statsEnabled      Boolean  @default(true) @map("stats_enabled")
+  totalEvents       Int      @default(0) @map("total_events")
+  totalMembers      Int      @default(0) @map("total_members")
+  activeProjects    Int      @default(0) @map("active_projects")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("home_content")
+}
+
+model ContactMessage {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  subject   String?
+  message   String   @db.Text
+  status    String   @default("unread") // unread, read, replied, archived
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("contact_messages")
+}
