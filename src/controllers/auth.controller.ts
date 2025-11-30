@@ -2,8 +2,10 @@ import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { asyncHandler } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
+import { sendEmail, emailTemplates } from '../services/email.service';
 
 const prisma = new PrismaClient();
 
@@ -223,5 +225,73 @@ export const forgotPassword = asyncHandler(async (req: AuthRequest, res: Respons
     message: 'If the email exists, a password reset link has been sent'
   });
 
-  // TODO: Implement email sending logic
+  if (!user) return;
+
+  // Generate reset token
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
+
+  // Save token to database
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      resetToken,
+      resetTokenExpiry
+    }
+  });
+
+  // Send reset email
+  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+  
+  await sendEmail({
+    to: user.email,
+    subject: 'Password Reset Request',
+    html: emailTemplates.passwordReset(user.displayName, resetUrl),
+  });
+});
+
+export const resetPassword = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return res.status(400).json({
+      success: false,
+      error: 'Token and new password are required'
+    });
+  }
+
+  // Find user by reset token
+  const user = await prisma.user.findFirst({
+    where: {
+      resetToken: token,
+      resetTokenExpiry: {
+        gt: new Date()
+      }
+    }
+  });
+
+  if (!user) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid or expired reset token'
+    });
+  }
+
+  // Hash new password
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  // Update password and clear reset token
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash: hashedPassword,
+      resetToken: null,
+      resetTokenExpiry: null
+    }
+  });
+
+  res.json({
+    success: true,
+    message: 'Password reset successfully'
+  });
 });

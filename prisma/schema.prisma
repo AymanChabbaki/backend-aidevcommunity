@@ -26,6 +26,8 @@ model User {
   staffRole       String?        @map("staff_role")
   studyLevel      StudyLevel?    @map("study_level")
   studyProgram    StudyProgram?  @map("study_program")
+  resetToken      String?        @map("reset_token")
+  resetTokenExpiry DateTime?     @map("reset_token_expiry")
   auditLogs       AuditLog[]
   organizedEvents Event[]        @relation("EventOrganizer")
   formResponses   FormResponse[]
