@@ -13,6 +13,7 @@ export const getMe = asyncHandler(async (req: AuthRequest, res: Response) => {
       email: true,
       displayName: true,
       role: true,
+      staffRole: true,
       photoUrl: true,
       bio: true,
       skills: true,
@@ -35,6 +36,7 @@ export const getMe = asyncHandler(async (req: AuthRequest, res: Response) => {
 export const updateProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
   const {
     displayName,
+    staffRole,
     bio,
     skills,
     github,
@@ -48,6 +50,7 @@ export const updateProfile = asyncHandler(async (req: AuthRequest, res: Response
     where: { id: req.user!.id },
     data: {
       displayName,
+      staffRole,
       bio,
       skills,
       github,
@@ -61,6 +64,7 @@ export const updateProfile = asyncHandler(async (req: AuthRequest, res: Response
       email: true,
       displayName: true,
       role: true,
+      staffRole: true,
       photoUrl: true,
       bio: true,
       skills: true,
