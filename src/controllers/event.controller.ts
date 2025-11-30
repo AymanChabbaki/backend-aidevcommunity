@@ -427,25 +427,28 @@ export const updateEvent = asyncHandler(async (req: AuthRequest, res: Response) 
     });
   }
 
+  // Build update data object with only provided fields
+  const updateData: any = {};
+  
+  if (title !== undefined) updateData.title = title;
+  if (description !== undefined) updateData.description = description;
+  if (category !== undefined) updateData.category = category;
+  if (locationType !== undefined) updateData.locationType = locationType;
+  if (locationText !== undefined) updateData.locationText = locationText;
+  if (startAt !== undefined) updateData.startAt = new Date(startAt);
+  if (endAt !== undefined) updateData.endAt = new Date(endAt);
+  if (capacity !== undefined) updateData.capacity = capacity;
+  if (speaker !== undefined) updateData.speaker = speaker;
+  if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
+  if (tags !== undefined) updateData.tags = tags;
+  if (req.body.status !== undefined) updateData.status = req.body.status;
+  if (requiresApproval !== undefined) updateData.requiresApproval = requiresApproval;
+  if (eligibleLevels !== undefined) updateData.eligibleLevels = eligibleLevels;
+  if (eligiblePrograms !== undefined) updateData.eligiblePrograms = eligiblePrograms;
+
   const updatedEvent = await prisma.event.update({
     where: { id },
-    data: {
-      title,
-      description,
-      category,
-      locationType,
-      locationText,
-      startAt: new Date(startAt),
-      endAt: new Date(endAt),
-      capacity,
-      speaker,
-      imageUrl,
-      tags,
-      status: req.body.status !== undefined ? req.body.status : event.status,
-      requiresApproval: requiresApproval !== undefined ? requiresApproval : event.requiresApproval,
-      eligibleLevels: eligibleLevels !== undefined ? eligibleLevels : event.eligibleLevels,
-      eligiblePrograms: eligiblePrograms !== undefined ? eligiblePrograms : event.eligiblePrograms
-    },
+    data: updateData,
     include: {
       organizer: {
         select: {
