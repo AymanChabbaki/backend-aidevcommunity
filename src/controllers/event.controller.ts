@@ -572,7 +572,7 @@ export const approveRegistration = asyncHandler(async (req: AuthRequest, res: Re
   const updatedRegistration = await prisma.registration.update({
     where: { id },
     data: {
-      status: 'APPROVED',
+      status: 'CONFIRMED',
       reviewedBy: req.user!.id,
       reviewedAt: new Date(),
       reviewComment: comment
