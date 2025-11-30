@@ -209,6 +209,14 @@ export const registerForEvent = asyncHandler(async (req: AuthRequest, res: Respo
     if (eligiblePrograms && eligiblePrograms.length > 0) {
       isEligible = isEligible && user?.studyProgram ? eligiblePrograms.includes(user.studyProgram) : false;
     }
+
+    // Block registration if not eligible
+    if (!isEligible) {
+      return res.status(403).json({
+        success: false,
+        error: 'You are not eligible for this event. Please check the eligibility requirements.',
+      });
+    }
   }
 
   // Generate QR token
