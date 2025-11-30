@@ -202,12 +202,18 @@ export const registerForEvent = asyncHandler(async (req: AuthRequest, res: Respo
     const eligibleLevels = event.eligibleLevels as string[] | null;
     const eligiblePrograms = event.eligiblePrograms as string[] | null;
     
+    // Check study level if specified
     if (eligibleLevels && eligibleLevels.length > 0) {
-      isEligible = isEligible && user?.studyLevel ? eligibleLevels.includes(user.studyLevel) : false;
+      if (!user?.studyLevel || !eligibleLevels.includes(user.studyLevel)) {
+        isEligible = false;
+      }
     }
     
+    // Check study program if specified
     if (eligiblePrograms && eligiblePrograms.length > 0) {
-      isEligible = isEligible && user?.studyProgram ? eligiblePrograms.includes(user.studyProgram) : false;
+      if (!user?.studyProgram || !eligiblePrograms.includes(user.studyProgram)) {
+        isEligible = false;
+      }
     }
 
     // Block registration if not eligible
