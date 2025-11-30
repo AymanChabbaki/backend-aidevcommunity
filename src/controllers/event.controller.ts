@@ -441,6 +441,7 @@ export const updateEvent = asyncHandler(async (req: AuthRequest, res: Response) 
       speaker,
       imageUrl,
       tags,
+      status: req.body.status !== undefined ? req.body.status : event.status,
       requiresApproval: requiresApproval !== undefined ? requiresApproval : event.requiresApproval,
       eligibleLevels: eligibleLevels !== undefined ? eligibleLevels : event.eligibleLevels,
       eligiblePrograms: eligiblePrograms !== undefined ? eligiblePrograms : event.eligiblePrograms
