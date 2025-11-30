@@ -243,11 +243,16 @@ export const forgotPassword = asyncHandler(async (req: AuthRequest, res: Respons
   // Send reset email
   const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
   
-  await sendEmail({
-    to: user.email,
-    subject: 'Password Reset Request',
-    html: emailTemplates.passwordReset(user.displayName, resetUrl),
-  });
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: 'Password Reset Request',
+      html: emailTemplates.passwordReset(user.displayName, resetUrl),
+    });
+    console.log(`Password reset email sent to ${user.email}`);
+  } catch (error) {
+    console.error('Failed to send password reset email:', error);
+  }
 });
 
 export const resetPassword = asyncHandler(async (req: AuthRequest, res: Response) => {
