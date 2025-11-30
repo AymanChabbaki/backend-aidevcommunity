@@ -171,7 +171,7 @@ export const vote = asyncHandler(async (req: AuthRequest, res: Response) => {
     data: {
       pollId: id,
       userId: req.user!.id,
-      optionId
+      optionId: String(optionId)
     }
   });
 
