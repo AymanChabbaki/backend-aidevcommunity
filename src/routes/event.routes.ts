@@ -21,9 +21,8 @@ const router = Router();
 
 // Public routes
 router.get('/', getAllEvents);
-router.get('/:id', getEventById);
 
-// Protected routes
+// Protected routes - specific routes before parameterized routes
 router.get('/user/registrations', authenticate, getMyRegistrations);
 router.post('/upload-image', authenticate, authorize('STAFF', 'ADMIN'), upload.single('image'), async (req: any, res: any) => {
   try {
@@ -36,6 +35,12 @@ router.post('/upload-image', authenticate, authorize('STAFF', 'ADMIN'), upload.s
     res.status(500).json({ error: error.message || 'Failed to upload image' });
   }
 });
+router.get('/registrations/pending', authenticate, authorize('STAFF', 'ADMIN'), getPendingRegistrations);
+router.put('/registrations/:id/approve', authenticate, authorize('STAFF', 'ADMIN'), approveRegistration);
+router.put('/registrations/:id/reject', authenticate, authorize('STAFF', 'ADMIN'), rejectRegistration);
+
+// Parameterized routes - must come after specific routes
+router.get('/:id', getEventById);
 router.post('/', authenticate, authorize('STAFF', 'ADMIN'), createEvent);
 router.put('/:id', authenticate, authorize('STAFF', 'ADMIN'), updateEvent);
 router.delete('/:id', authenticate, authorize('STAFF', 'ADMIN'), deleteEvent);
@@ -43,10 +48,5 @@ router.post('/:id/register', authenticate, registerForEvent);
 router.post('/:id/checkin', authenticate, authorize('STAFF', 'ADMIN'), checkIn);
 router.get('/:id/registrations', authenticate, authorize('STAFF', 'ADMIN'), getEventRegistrations);
 router.get('/:id/registrations/export', authenticate, authorize('STAFF', 'ADMIN'), exportRegistrations);
-
-// Registration approval routes
-router.get('/registrations/pending', authenticate, authorize('STAFF', 'ADMIN'), getPendingRegistrations);
-router.put('/registrations/:id/approve', authenticate, authorize('STAFF', 'ADMIN'), approveRegistration);
-router.put('/registrations/:id/reject', authenticate, authorize('STAFF', 'ADMIN'), rejectRegistration);
 
 export default router;
