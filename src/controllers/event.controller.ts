@@ -216,10 +216,11 @@ export const registerForEvent = asyncHandler(async (req: AuthRequest, res: Respo
       } else {
         // Check if user's program matches any eligible program
         // Handle both full format (MASTER_M2) and short format (M2)
+        const userProgram = user.studyProgram;
         const userProgramMatches = eligiblePrograms.some(eligibleProg => {
-          return user.studyProgram === eligibleProg || 
-                 user.studyProgram.endsWith('_' + eligibleProg) ||
-                 user.studyProgram.includes(eligibleProg);
+          return userProgram === eligibleProg || 
+                 userProgram.endsWith('_' + eligibleProg) ||
+                 userProgram.includes(eligibleProg);
         });
         
         if (!userProgramMatches) {
