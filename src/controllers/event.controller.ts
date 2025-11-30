@@ -105,7 +105,10 @@ export const createEvent = asyncHandler(async (req: AuthRequest, res: Response) 
     imageUrl,
     tags,
     category,
-    speaker
+    speaker,
+    requiresApproval,
+    eligibleLevels,
+    eligiblePrograms
   } = req.body;
 
   const event = await prisma.event.create({
@@ -121,7 +124,10 @@ export const createEvent = asyncHandler(async (req: AuthRequest, res: Response) 
       tags,
       category,
       speaker,
-      organizerId: req.user!.id
+      organizerId: req.user!.id,
+      requiresApproval: requiresApproval || false,
+      eligibleLevels: eligibleLevels || [],
+      eligiblePrograms: eligiblePrograms || []
     }
   });
 
@@ -371,7 +377,10 @@ export const updateEvent = asyncHandler(async (req: AuthRequest, res: Response) 
     capacity,
     speaker,
     imageUrl,
-    tags
+    tags,
+    requiresApproval,
+    eligibleLevels,
+    eligiblePrograms
   } = req.body;
 
   const event = await prisma.event.findUnique({ where: { id } });
@@ -404,7 +413,10 @@ export const updateEvent = asyncHandler(async (req: AuthRequest, res: Response) 
       capacity,
       speaker,
       imageUrl,
-      tags
+      tags,
+      requiresApproval: requiresApproval !== undefined ? requiresApproval : event.requiresApproval,
+      eligibleLevels: eligibleLevels !== undefined ? eligibleLevels : event.eligibleLevels,
+      eligiblePrograms: eligiblePrograms !== undefined ? eligiblePrograms : event.eligiblePrograms
     },
     include: {
       organizer: {
