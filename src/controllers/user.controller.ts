@@ -120,7 +120,8 @@ export const uploadProfilePhoto = asyncHandler(async (req: AuthRequest, res: Res
     });
   }
 
-  const photoUrl = `/uploads/${req.file.filename}`;
+  // Cloudinary stores the full URL in req.file.path
+  const photoUrl = (req.file as any).path || `/uploads/${req.file.filename}`;
 
   const user = await prisma.user.update({
     where: { id: req.user!.id },

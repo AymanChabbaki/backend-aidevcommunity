@@ -30,13 +30,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Static files - Add CORS headers for uploads
-app.use('/uploads', (req, res, next) => {
-  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.header('Access-Control-Allow-Origin', '*');
-  next();
-}, express.static('uploads'));
-
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
