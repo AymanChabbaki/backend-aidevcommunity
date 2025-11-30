@@ -24,6 +24,8 @@ model User {
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
   staffRole       String?        @map("staff_role")
+  studyLevel      StudyLevel?    @map("study_level")
+  studyProgram    StudyProgram?  @map("study_program")
   auditLogs       AuditLog[]
   organizedEvents Event[]        @relation("EventOrganizer")
   formResponses   FormResponse[]
@@ -59,10 +61,13 @@ model Event {
   imageUrl      String?        @map("image_url") @db.VarChar(500)
   tags          Json?
   organizerId   String         @map("organizer_id")
-  status        EventStatus    @default(UPCOMING)
-  category      String?
-  speaker       String?
-  createdAt     DateTime       @default(now()) @map("created_at")
+  status           EventStatus    @default(UPCOMING)
+  category         String?
+  speaker          String?
+  requiresApproval Boolean        @default(false) @map("requires_approval")
+  eligibleLevels   Json?          @map("eligible_levels")
+  eligiblePrograms Json?          @map("eligible_programs")
+  createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
   organizer     User           @relation("EventOrganizer", fields: [organizerId], references: [id])
   forms         Form[]
@@ -78,9 +83,12 @@ model Registration {
   userId      String             @map("user_id")
   status      RegistrationStatus @default(REGISTERED)
   badgeUrl    String?            @map("badge_url")
-  qrToken     String             @unique @map("qr_token")
-  checkedInAt DateTime?          @map("checked_in_at")
-  createdAt   DateTime           @default(now()) @map("created_at")
+  qrToken       String             @unique @map("qr_token")
+  checkedInAt   DateTime?          @map("checked_in_at")
+  reviewedBy    String?            @map("reviewed_by")
+  reviewedAt    DateTime?          @map("reviewed_at")
+  reviewComment String?            @map("review_comment") @db.Text
+  createdAt     DateTime           @default(now()) @map("created_at")
   event       Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -240,10 +248,33 @@ enum EventStatus {
 }
 
 enum RegistrationStatus {
+  PENDING
   REGISTERED
   APPROVED
+  REJECTED
   CANCELLED
   WAITLIST
+}
+
+enum StudyLevel {
+  BACHELOR
+  MASTER
+  DOCTORATE
+}
+
+enum StudyProgram {
+  BACHELOR_S1
+  BACHELOR_S2
+  BACHELOR_S3
+  BACHELOR_S4
+  BACHELOR_S5
+  BACHELOR_S6
+  MASTER_M1
+  MASTER_M2
+  DOCTORATE_Y1
+  DOCTORATE_Y2
+  DOCTORATE_Y3
+  DOCTORATE_Y4
 }
 
 enum PollVisibility {

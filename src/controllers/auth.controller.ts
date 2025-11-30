@@ -8,7 +8,7 @@ import { AuthRequest } from '../middleware/auth';
 const prisma = new PrismaClient();
 
 export const register = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { email, password, displayName } = req.body;
+  const { email, password, displayName, studyLevel, studyProgram } = req.body;
 
   // Validate input
   if (!email || !password || !displayName) {
@@ -36,13 +36,17 @@ export const register = asyncHandler(async (req: AuthRequest, res: Response) => 
       email,
       passwordHash,
       displayName,
-      role: 'USER'
+      role: 'USER',
+      studyLevel: studyLevel || null,
+      studyProgram: studyProgram || null
     },
     select: {
       id: true,
       email: true,
       displayName: true,
       role: true,
+      studyLevel: true,
+      studyProgram: true,
       createdAt: true
     }
   });

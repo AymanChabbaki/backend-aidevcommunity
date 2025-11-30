@@ -23,6 +23,8 @@ export const getMe = asyncHandler(async (req: AuthRequest, res: Response) => {
       twitter: true,
       publicProfile: true,
       locale: true,
+      studyLevel: true,
+      studyProgram: true,
       createdAt: true,
       updatedAt: true
     }
@@ -44,7 +46,9 @@ export const updateProfile = asyncHandler(async (req: AuthRequest, res: Response
     linkedin,
     twitter,
     publicProfile,
-    locale
+    locale,
+    studyLevel,
+    studyProgram
   } = req.body;
 
   const user = await prisma.user.update({
@@ -58,7 +62,9 @@ export const updateProfile = asyncHandler(async (req: AuthRequest, res: Response
       linkedin,
       twitter,
       publicProfile,
-      locale
+      locale,
+      studyLevel,
+      studyProgram
     },
     select: {
       id: true,
@@ -73,7 +79,9 @@ export const updateProfile = asyncHandler(async (req: AuthRequest, res: Response
       linkedin: true,
       twitter: true,
       publicProfile: true,
-      locale: true
+      locale: true,
+      studyLevel: true,
+      studyProgram: true
     }
   });
 

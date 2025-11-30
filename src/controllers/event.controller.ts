@@ -4,6 +4,8 @@ import { asyncHandler } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
 import QRCode from 'qrcode';
 import { v4 as uuidv4 } from 'uuid';
+import { sendEmail, emailTemplates } from '../services/email.service';
+import { format } from 'date-fns';
 
 const prisma = new PrismaClient();
 
@@ -182,8 +184,32 @@ export const registerForEvent = asyncHandler(async (req: AuthRequest, res: Respo
     });
   }
 
+  // Get user info for eligibility check
+  const user = await prisma.user.findUnique({
+    where: { id: req.user!.id },
+    select: { studyLevel: true, studyProgram: true }
+  });
+
+  // Check eligibility if event has requirements
+  let isEligible = true;
+  if (event.requiresApproval) {
+    const eligibleLevels = event.eligibleLevels as string[] | null;
+    const eligiblePrograms = event.eligiblePrograms as string[] | null;
+    
+    if (eligibleLevels && eligibleLevels.length > 0) {
+      isEligible = isEligible && user?.studyLevel ? eligibleLevels.includes(user.studyLevel) : false;
+    }
+    
+    if (eligiblePrograms && eligiblePrograms.length > 0) {
+      isEligible = isEligible && user?.studyProgram ? eligiblePrograms.includes(user.studyProgram) : false;
+    }
+  }
+
   // Generate QR token
   const qrToken = uuidv4();
+
+  // Determine registration status
+  const status = event.requiresApproval ? 'PENDING' : 'REGISTERED';
 
   // Create registration
   const registration = await prisma.registration.create({
@@ -191,7 +217,7 @@ export const registerForEvent = asyncHandler(async (req: AuthRequest, res: Respo
       eventId: id,
       userId: req.user!.id,
       qrToken,
-      status: 'REGISTERED'
+      status
     },
     include: {
       event: true,
@@ -199,25 +225,37 @@ export const registerForEvent = asyncHandler(async (req: AuthRequest, res: Respo
         select: {
           displayName: true,
           email: true,
-          photoUrl: true
+          photoUrl: true,
+          studyLevel: true,
+          studyProgram: true
         }
       }
     }
   });
 
   // Create notification
+  const notificationTitle = event.requiresApproval 
+    ? 'Event Registration Pending' 
+    : 'Event Registration Confirmed';
+  const notificationContent = event.requiresApproval
+    ? `Your registration for ${event.title} is pending approval`
+    : `You have successfully registered for ${event.title}`;
+
   await prisma.notification.create({
     data: {
       userId: req.user!.id,
       type: 'EVENT_CONFIRMATION',
-      title: 'Event Registration Confirmed',
-      content: `You have successfully registered for ${event.title}`
+      title: notificationTitle,
+      content: notificationContent
     }
   });
 
   res.status(201).json({
     success: true,
-    data: registration
+    data: registration,
+    message: event.requiresApproval 
+      ? 'Registration submitted for approval' 
+      : 'Registration confirmed'
   });
 });
 
@@ -440,5 +478,218 @@ export const getMyRegistrations = asyncHandler(async (req: AuthRequest, res: Res
   res.json({
     success: true,
     data: registrations
+  });
+});
+
+export const getPendingRegistrations = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const registrations = await prisma.registration.findMany({
+    where: { status: 'PENDING' },
+    include: {
+      event: {
+        select: {
+          id: true,
+          title: true,
+          startAt: true,
+          requiresApproval: true,
+          eligibleLevels: true,
+          eligiblePrograms: true
+        }
+      },
+      user: {
+        select: {
+          id: true,
+          displayName: true,
+          email: true,
+          photoUrl: true,
+          studyLevel: true,
+          studyProgram: true,
+          createdAt: true
+        }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+
+  res.json({
+    success: true,
+    data: registrations
+  });
+});
+
+export const approveRegistration = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { comment } = req.body;
+
+  const registration = await prisma.registration.findUnique({
+    where: { id },
+    include: {
+      event: true,
+      user: {
+        select: {
+          id: true,
+          displayName: true,
+          email: true
+        }
+      }
+    }
+  });
+
+  if (!registration) {
+    return res.status(404).json({
+      success: false,
+      error: 'Registration not found'
+    });
+  }
+
+  if (registration.status !== 'PENDING') {
+    return res.status(400).json({
+      success: false,
+      error: 'Registration is not pending'
+    });
+  }
+
+  // Update registration status
+  const updatedRegistration = await prisma.registration.update({
+    where: { id },
+    data: {
+      status: 'APPROVED',
+      reviewedBy: req.user!.id,
+      reviewedAt: new Date(),
+      reviewComment: comment
+    }
+  });
+
+  // Create notification for user
+  await prisma.notification.create({
+    data: {
+      userId: registration.user.id,
+      type: 'EVENT_CONFIRMATION',
+      title: 'Registration Approved',
+      content: `Your registration for ${registration.event.title} has been approved${comment ? ': ' + comment : ''}`
+    }
+  });
+
+  // Send approval email
+  const emailTemplate = emailTemplates.registrationApproved(
+    registration.user.displayName,
+    registration.event.title,
+    format(new Date(registration.event.startAt), 'PPP'),
+    comment
+  );
+  await sendEmail({
+    to: registration.user.email,
+    subject: emailTemplate.subject,
+    html: emailTemplate.html,
+    text: emailTemplate.text
+  });
+
+  // Create audit log
+  await prisma.auditLog.create({
+    data: {
+      actorId: req.user!.id,
+      action: 'APPROVE_REGISTRATION',
+      entity: 'REGISTRATION',
+      entityId: id,
+      metadata: {
+        eventId: registration.eventId,
+        userId: registration.userId,
+        eventTitle: registration.event.title
+      }
+    }
+  });
+
+  res.json({
+    success: true,
+    data: updatedRegistration,
+    message: 'Registration approved successfully'
+  });
+});
+
+export const rejectRegistration = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  const registration = await prisma.registration.findUnique({
+    where: { id },
+    include: {
+      event: true,
+      user: {
+        select: {
+          id: true,
+          displayName: true,
+          email: true
+        }
+      }
+    }
+  });
+
+  if (!registration) {
+    return res.status(404).json({
+      success: false,
+      error: 'Registration not found'
+    });
+  }
+
+  if (registration.status !== 'PENDING') {
+    return res.status(400).json({
+      success: false,
+      error: 'Registration is not pending'
+    });
+  }
+
+  // Update registration status
+  const updatedRegistration = await prisma.registration.update({
+    where: { id },
+    data: {
+      status: 'REJECTED',
+      reviewedBy: req.user!.id,
+      reviewedAt: new Date(),
+      reviewComment: reason
+    }
+  });
+
+  // Create notification for user
+  await prisma.notification.create({
+    data: {
+      userId: registration.user.id,
+      type: 'EVENT_UPDATE',
+      title: 'Registration Not Approved',
+      content: `Your registration for ${registration.event.title} was not approved${reason ? ': ' + reason : ''}`
+    }
+  });
+
+  // Send rejection email
+  const emailTemplate = emailTemplates.registrationRejected(
+    registration.user.displayName,
+    registration.event.title,
+    reason
+  );
+  await sendEmail({
+    to: registration.user.email,
+    subject: emailTemplate.subject,
+    html: emailTemplate.html,
+    text: emailTemplate.text
+  });
+
+  // Create audit log
+  await prisma.auditLog.create({
+    data: {
+      actorId: req.user!.id,
+      action: 'REJECT_REGISTRATION',
+      entity: 'REGISTRATION',
+      entityId: id,
+      metadata: {
+        eventId: registration.eventId,
+        userId: registration.userId,
+        eventTitle: registration.event.title,
+        reason
+      }
+    }
+  });
+
+  res.json({
+    success: true,
+    data: updatedRegistration,
+    message: 'Registration rejected'
   });
 });
