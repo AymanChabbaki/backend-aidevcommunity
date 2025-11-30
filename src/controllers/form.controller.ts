@@ -222,7 +222,7 @@ export const deleteForm = asyncHandler(async (req: AuthRequest, res: Response) =
     });
   }
 
-  // Check if user is the creator or admin
+  // Check if user is the creator, staff (own forms), or admin (all forms)
   if (form.createdBy !== req.user!.id && req.user!.role !== 'ADMIN') {
     return res.status(403).json({
       success: false,

@@ -270,7 +270,7 @@ export const deletePoll = asyncHandler(async (req: AuthRequest, res: Response) =
     });
   }
 
-  // Check if user is the creator or admin
+  // Check if user is the creator, staff (own polls), or admin (all polls)
   if (poll.createdBy !== req.user!.id && req.user!.role !== 'ADMIN') {
     return res.status(403).json({
       success: false,
