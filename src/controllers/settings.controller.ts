@@ -1,9 +1,7 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { asyncHandler } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 // Get all settings or by category
 export const getSettings = asyncHandler(async (req: AuthRequest, res: Response) => {

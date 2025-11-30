@@ -1,13 +1,11 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { asyncHandler } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
 import { sendEmail, emailTemplates } from '../services/email.service';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export const register = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { email, password, displayName, studyLevel, studyProgram } = req.body;

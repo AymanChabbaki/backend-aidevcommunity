@@ -1,9 +1,7 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { asyncHandler } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export const getNotifications = asyncHandler(async (req: AuthRequest, res: Response) => {
   const notifications = await prisma.notification.findMany({

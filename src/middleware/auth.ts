@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 
 // Define Role enum locally since Prisma client may not be generated yet
 export enum Role {
@@ -8,8 +8,6 @@ export enum Role {
   STAFF = 'STAFF',
   ADMIN = 'ADMIN'
 }
-
-const prisma = new PrismaClient();
 
 export interface AuthRequest extends Request {
   user?: {

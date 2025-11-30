@@ -1,10 +1,8 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { asyncHandler } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export const getMe = asyncHandler(async (req: AuthRequest, res: Response) => {
   const user = await prisma.user.findUnique({

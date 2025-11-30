@@ -1,13 +1,11 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { asyncHandler } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
 import QRCode from 'qrcode';
 import { v4 as uuidv4 } from 'uuid';
 import { sendEmail, emailTemplates } from '../services/email.service';
 import { format } from 'date-fns';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export const getAllEvents = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { status, category, search } = req.query;
