@@ -24,6 +24,29 @@ export const getHomeContent = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Clean up featured event IDs - remove IDs of deleted events
+    const featuredIds = content.featuredEventIds as string[];
+    if (featuredIds && Array.isArray(featuredIds) && featuredIds.length > 0) {
+      const existingEvents = await prisma.event.findMany({
+        where: {
+          id: { in: featuredIds }
+        },
+        select: { id: true }
+      });
+
+      const existingEventIds = existingEvents.map(e => e.id);
+      const cleanedIds = featuredIds.filter((id: string) => existingEventIds.includes(id));
+
+      // Update content if IDs were removed
+      if (cleanedIds.length !== featuredIds.length) {
+        await prisma.homeContent.update({
+          where: { id: content.id },
+          data: { featuredEventIds: cleanedIds }
+        });
+        content.featuredEventIds = cleanedIds as any;
+      }
+    }
+
     res.json(content);
   } catch (error) {
     console.error('Error fetching home content:', error);
@@ -46,6 +69,19 @@ export const updateHomeContent = async (req: AuthRequest, res: Response) => {
       activeProjects
     } = req.body;
 
+    // Validate featured event IDs - ensure all events exist
+    let validFeaturedEventIds = featuredEventIds || [];
+    if (validFeaturedEventIds.length > 0) {
+      const existingEvents = await prisma.event.findMany({
+        where: {
+          id: { in: validFeaturedEventIds }
+        },
+        select: { id: true }
+      });
+      const existingEventIds = existingEvents.map(e => e.id);
+      validFeaturedEventIds = validFeaturedEventIds.filter((id: string) => existingEventIds.includes(id));
+    }
+
     // Get existing content or create new
     const existing = await prisma.homeContent.findFirst({
       orderBy: { createdAt: 'desc' }
@@ -60,7 +96,7 @@ export const updateHomeContent = async (req: AuthRequest, res: Response) => {
           heroSubtitle,
           heroCtaText,
           heroCtaLink,
-          featuredEventIds,
+          featuredEventIds: validFeaturedEventIds,
           showPastEvents,
           statsEnabled,
           totalEvents,
@@ -75,7 +111,7 @@ export const updateHomeContent = async (req: AuthRequest, res: Response) => {
           heroSubtitle,
           heroCtaText,
           heroCtaLink,
-          featuredEventIds,
+          featuredEventIds: validFeaturedEventIds,
           showPastEvents,
           statsEnabled,
           totalEvents,
