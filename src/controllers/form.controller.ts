@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
 import prisma from '../lib/prisma';
+import * as XLSX from 'xlsx';
 
 export const getAllForms = asyncHandler(async (req: AuthRequest, res: Response) => {
   const forms = await prisma.form.findMany({
@@ -123,6 +124,7 @@ export const getFormResponses = asyncHandler(async (req: AuthRequest, res: Respo
 
 export const exportFormResponses = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
+  const { format = 'csv' } = req.query; // Get format from query parameter (csv or xlsx)
 
   const form = await prisma.form.findUnique({ where: { id } });
   const responses = await prisma.formResponse.findMany({
@@ -144,52 +146,58 @@ export const exportFormResponses = asyncHandler(async (req: AuthRequest, res: Re
     });
   }
 
-  // Helper function to escape CSV values
-  const escapeCsvValue = (value: any): string => {
-    if (value === null || value === undefined) {
-      return '';
-    }
-    
-    // Handle arrays (from checkbox fields)
-    if (Array.isArray(value)) {
-      value = value.join('; ');
-    }
-    
-    // Convert to string
-    const stringValue = String(value);
-    
-    // Escape quotes and wrap in quotes if contains comma, quote, or newline
-    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
-      return `"${stringValue.replace(/"/g, '""')}"`;
-    }
-    
-    return stringValue;
-  };
-
-  // Create CSV
   const fields = form.fields as any[];
   const headers = ['Name', 'Email', ...fields.map((f: any) => f.label), 'Submitted At'];
-  const csvHeader = headers.map(escapeCsvValue).join(',') + '\n';
   
-  const csvRows = responses.map((resp) => {
+  // Prepare data rows
+  const dataRows = responses.map((resp) => {
     const answers = resp.answers as any;
-    const row = [
+    return [
       resp.user?.displayName || 'Anonymous',
       resp.user?.email || '',
       ...fields.map((f: any) => {
         const answer = answers[f.id];
-        return answer !== undefined && answer !== null ? answer : '';
+        if (answer === null || answer === undefined) return '';
+        if (Array.isArray(answer)) return answer.join('; ');
+        return answer;
       }),
       new Date(resp.createdAt).toLocaleString()
     ];
-    return row.map(escapeCsvValue).join(',');
-  }).join('\n');
+  });
 
-  const csv = csvHeader + csvRows;
+  const baseFilename = `form-responses-${form.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}`;
 
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="form-responses-${form.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv"`);
-  res.send('\uFEFF' + csv); // Add BOM for proper Excel UTF-8 encoding
+  if (format === 'xlsx') {
+    // Export as XLSX
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Responses');
+    
+    // Generate buffer
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${baseFilename}.xlsx"`);
+    res.send(buffer);
+  } else {
+    // Export as CSV
+    const escapeCsvValue = (value: any): string => {
+      if (value === null || value === undefined) return '';
+      const stringValue = String(value);
+      if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    };
+
+    const csvHeader = headers.map(escapeCsvValue).join(',') + '\n';
+    const csvRows = dataRows.map(row => row.map(escapeCsvValue).join(',')).join('\n');
+    const csv = csvHeader + csvRows;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${baseFilename}.csv"`);
+    res.send('\uFEFF' + csv); // Add BOM for proper Excel UTF-8 encoding
+  }
 });
 
 export const getUserSubmission = asyncHandler(async (req: AuthRequest, res: Response) => {
