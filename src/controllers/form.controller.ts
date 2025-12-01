@@ -144,20 +144,52 @@ export const exportFormResponses = asyncHandler(async (req: AuthRequest, res: Re
     });
   }
 
+  // Helper function to escape CSV values
+  const escapeCsvValue = (value: any): string => {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    
+    // Handle arrays (from checkbox fields)
+    if (Array.isArray(value)) {
+      value = value.join('; ');
+    }
+    
+    // Convert to string
+    const stringValue = String(value);
+    
+    // Escape quotes and wrap in quotes if contains comma, quote, or newline
+    if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    
+    return stringValue;
+  };
+
   // Create CSV
   const fields = form.fields as any[];
-  const csvHeader = `Name,Email,${fields.map((f: any) => f.label).join(',')},Submitted At\n`;
-  const csvRows = responses.map((resp: typeof responses[0]) => {
+  const headers = ['Name', 'Email', ...fields.map((f: any) => f.label), 'Submitted At'];
+  const csvHeader = headers.map(escapeCsvValue).join(',') + '\n';
+  
+  const csvRows = responses.map((resp) => {
     const answers = resp.answers as any;
-    const answerValues = fields.map((f: any) => answers[f.id] || '').join(',');
-    return `${resp.user?.displayName || 'Anonymous'},${resp.user?.email || ''},${answerValues},${resp.createdAt}`;
+    const row = [
+      resp.user?.displayName || 'Anonymous',
+      resp.user?.email || '',
+      ...fields.map((f: any) => {
+        const answer = answers[f.id];
+        return answer !== undefined && answer !== null ? answer : '';
+      }),
+      new Date(resp.createdAt).toLocaleString()
+    ];
+    return row.map(escapeCsvValue).join(',');
   }).join('\n');
 
   const csv = csvHeader + csvRows;
 
-  res.setHeader('Content-Type', 'text/csv');
-  res.setHeader('Content-Disposition', `attachment; filename=form-responses-${id}.csv`);
-  res.send(csv);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="form-responses-${form.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv"`);
+  res.send('\uFEFF' + csv); // Add BOM for proper Excel UTF-8 encoding
 });
 
 export const getUserSubmission = asyncHandler(async (req: AuthRequest, res: Response) => {
