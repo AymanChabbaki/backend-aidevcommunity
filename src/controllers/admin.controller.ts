@@ -28,7 +28,17 @@ export const getAllUsers = asyncHandler(async (req: AuthRequest, res: Response) 
       role: true,
       staffRole: true,
       photoUrl: true,
+      bio: true,
+      skills: true,
+      studyLevel: true,
+      studyProgram: true,
+      github: true,
+      linkedin: true,
+      twitter: true,
+      locale: true,
+      publicProfile: true,
       createdAt: true,
+      updatedAt: true,
       _count: {
         select: {
           registrations: true,
