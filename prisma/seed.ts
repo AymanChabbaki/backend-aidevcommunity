@@ -66,7 +66,7 @@ async function main() {
     create: {
       email: 'john@example.com',
       passwordHash: userPassword,
-      displayName: 'John Doe',
+      displayName: 'Mohammed Salahi',
       role: 'USER',
       bio: 'Full-stack developer passionate about AI',
       skills: ['JavaScript', 'React', 'Node.js', 'Python'],
