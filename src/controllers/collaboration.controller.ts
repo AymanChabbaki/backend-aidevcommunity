@@ -120,9 +120,8 @@ export const inviteCollaborator = async (req: AuthRequest, res: Response) => {
       data: {
         userId,
         title: 'Event Collaboration Invitation',
-        message: `${collaboration.inviter.displayName} invited you to collaborate on "${event.title}"`,
-        type: 'COLLABORATION_INVITE',
-        link: `/staff/collaborations`
+        content: `${collaboration.inviter.displayName} invited you to collaborate on "${event.title}"`,
+        type: 'COLLABORATION_INVITE'
       }
     });
 
@@ -292,7 +291,7 @@ export const respondToInvitation = async (req: AuthRequest, res: Response) => {
         data: {
           userId: collaboration.event.organizerId,
           title: 'Collaboration Accepted',
-          message: `${updated.user.displayName} accepted your collaboration invitation for "${collaboration.event.title}"`,
+          content: `${updated.user.displayName} accepted your collaboration invitation for "${collaboration.event.title}"`,
           type: 'COLLABORATION_ACCEPTED'
         }
       });

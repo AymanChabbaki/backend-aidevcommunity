@@ -1,12 +1,12 @@
 import express from 'express';
 import * as collaborationController from '../controllers/collaboration.controller.js';
-import { authenticateToken, requireRole } from '../middleware/auth.middleware.js';
+import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // All routes require authentication and staff/admin role
-router.use(authenticateToken);
-router.use(requireRole(['STAFF', 'ADMIN']));
+router.use(authenticate);
+router.use(authorize('STAFF', 'ADMIN'));
 
 // Get all staff members (for inviting)
 router.get('/staff-members', collaborationController.getStaffMembers);
