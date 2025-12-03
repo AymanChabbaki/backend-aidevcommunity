@@ -29,7 +29,9 @@ model User {
   resetToken      String?        @map("reset_token")
   resetTokenExpiry DateTime?     @map("reset_token_expiry")
   auditLogs       AuditLog[]
-  organizedEvents Event[]        @relation("EventOrganizer")
+  organizedEvents Event[]              @relation("EventOrganizer")
+  eventCollaborations EventCollaborator[] @relation("EventCollaborations")
+  sentCollaborations  EventCollaborator[] @relation("CollaboratorInvitations")
   formResponses   FormResponse[]
   notifications   Notification[]
   refreshTokens   RefreshToken[]
@@ -71,12 +73,34 @@ model Event {
   eligiblePrograms Json?          @map("eligible_programs")
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
-  organizer     User           @relation("EventOrganizer", fields: [organizerId], references: [id])
+  organizer     User              @relation("EventOrganizer", fields: [organizerId], references: [id])
+  collaborators EventCollaborator[]
   forms         Form[]
   registrations Registration[]
 
   @@index([organizerId], map: "events_organizer_id_fkey")
   @@map("events")
+}
+
+model EventCollaborator {
+  id          String   @id @default(uuid())
+  eventId     String   @map("event_id")
+  userId      String   @map("user_id")
+  role        String   @default("COLLABORATOR") // COLLABORATOR, CO_ORGANIZER
+  permissions Json?    // { canEdit: true, canApprove: true, canManageRegistrations: true }
+  invitedBy   String   @map("invited_by")
+  status      String   @default("PENDING") // PENDING, ACCEPTED, DECLINED
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user        User     @relation("EventCollaborations", fields: [userId], references: [id], onDelete: Cascade)
+  inviter     User     @relation("CollaboratorInvitations", fields: [invitedBy], references: [id])
+
+  @@unique([eventId, userId])
+  @@index([userId])
+  @@index([eventId])
+  @@map("event_collaborators")
 }
 
 model Registration {
@@ -296,4 +320,6 @@ enum NotificationType {
   EVENT_UPDATE
   SYSTEM
   FORM_SUBMISSION
+  COLLABORATION_INVITE
+  COLLABORATION_ACCEPTED
 }
