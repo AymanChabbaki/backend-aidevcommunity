@@ -92,6 +92,32 @@ export const sendMessageToUsers = asyncHandler(async (req: Request, res: Respons
       },
     });
     recipients = users;
+  } else if (recipientType === 'users') {
+    // Send to users only (exclude staff and admin)
+    const users = await prisma.user.findMany({
+      where: {
+        role: 'USER',
+      },
+      select: {
+        email: true,
+        displayName: true,
+      },
+    });
+    recipients = users;
+  } else if (recipientType === 'staff') {
+    // Send to staff and admin only
+    const users = await prisma.user.findMany({
+      where: {
+        role: {
+          in: ['STAFF', 'ADMIN'],
+        },
+      },
+      select: {
+        email: true,
+        displayName: true,
+      },
+    });
+    recipients = users;
   } else if (recipientType === 'specific' && userIds && userIds.length > 0) {
     // Send to specific users
     const users = await prisma.user.findMany({
