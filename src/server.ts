@@ -13,6 +13,7 @@ import settingsRoutes from './routes/settings.routes';
 import homeContentRoutes from './routes/home-content.routes';
 import contactRoutes from './routes/contact.routes';
 import collaborationRoutes from './routes/collaboration.routes';
+import messagingRoutes from './routes/messaging.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -43,6 +44,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/home-content', homeContentRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/collaborations', collaborationRoutes);
+app.use('/api/messaging', messagingRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
