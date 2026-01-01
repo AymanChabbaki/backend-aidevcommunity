@@ -165,25 +165,35 @@ export const sendMessageToUsers = asyncHandler(async (req: Request, res: Respons
     });
   }
 
+  // Function to replace variables in message
+  const replaceVariables = (text: string, recipient: { email: string; displayName: string }) => {
+    return text
+      .replace(/{{name}}/g, recipient.displayName)
+      .replace(/{{email}}/g, recipient.email);
+  };
+
   // Send emails to all recipients
-  const emailPromises = recipients.map((recipient) =>
-    sendEmail({
+  const emailPromises = recipients.map((recipient) => {
+    const personalizedSubject = replaceVariables(subject, recipient);
+    const personalizedMessage = replaceVariables(message, recipient);
+    
+    return sendEmail({
       to: recipient.email,
-      subject: subject,
+      subject: personalizedSubject,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #333;">Message from ${senderUser.role === 'ADMIN' ? 'Admin' : 'Staff'}</h2>
           <p>Hello ${recipient.displayName},</p>
           <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
-            ${message.replace(/\n/g, '<br>')}
+            ${personalizedMessage.replace(/\n/g, '<br>')}
           </div>
           <p style="color: #666; font-size: 12px; margin-top: 30px;">
             This message was sent by ${senderUser.role === 'ADMIN' ? 'an administrator' : 'a staff member'} from AI Dev Community.
           </p>
         </div>
       `,
-    })
-  );
+    });
+  });
 
   try {
     await Promise.all(emailPromises);
