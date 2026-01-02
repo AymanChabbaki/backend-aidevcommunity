@@ -204,7 +204,9 @@ export const emailTemplates = {
               <p><strong>Until:</strong> ${endDate}</p>
               ${customMessage ? `<p><em>${customMessage}</em></p>` : ''}
               <p>Test your knowledge and compete for the top spot on the leaderboard!</p>
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/quizzes" class="button">Take Quiz Now</a>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/quizzes" class="button" style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #f59e0b 0%, #dc2626 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🎯 Take Quiz Now</a>
+              </div>
               <p>Good luck!</p>
               <p>Best regards,<br/>AI Dev Community Team</p>
             </div>

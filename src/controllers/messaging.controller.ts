@@ -12,6 +12,7 @@ export const getUsers = asyncHandler(async (req: Request, res: Response) => {
       displayName: true,
       email: true,
       role: true,
+      photoUrl: true,
     },
     orderBy: {
       displayName: 'asc',
