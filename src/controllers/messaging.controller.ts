@@ -179,6 +179,51 @@ export const sendMessageToUsers = asyncHandler(async (req: AuthRequest, res: Res
     const personalizedSubject = replaceVariables(subject, recipient);
     const personalizedMessage = replaceVariables(message, recipient);
     
+    // Check if this is a quiz notification (contains "quiz" in subject)
+    const isQuizNotification = subject.toLowerCase().includes('quiz');
+    const isEventNotification = subject.toLowerCase().includes('event');
+    const isPollNotification = subject.toLowerCase().includes('poll');
+    const isFormNotification = subject.toLowerCase().includes('form');
+    
+    let buttonHtml = '';
+    if (isQuizNotification) {
+      buttonHtml = `
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/quizzes" 
+             style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #f59e0b 0%, #dc2626 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            🎯 Take Quiz Now
+          </a>
+        </div>
+      `;
+    } else if (isEventNotification) {
+      buttonHtml = `
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/events" 
+             style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            📅 View Event Details
+          </a>
+        </div>
+      `;
+    } else if (isPollNotification) {
+      buttonHtml = `
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/polls" 
+             style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            📊 Vote Now
+          </a>
+        </div>
+      `;
+    } else if (isFormNotification) {
+      buttonHtml = `
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard" 
+             style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            📝 Fill Form
+          </a>
+        </div>
+      `;
+    }
+    
     return sendEmail({
       to: recipient.email,
       subject: personalizedSubject,
@@ -189,6 +234,7 @@ export const sendMessageToUsers = asyncHandler(async (req: AuthRequest, res: Res
           <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
             ${personalizedMessage.replace(/\n/g, '<br>')}
           </div>
+          ${buttonHtml}
           <p style="color: #666; font-size: 12px; margin-top: 30px;">
             This message was sent by ${senderUser.role === 'ADMIN' ? 'an administrator' : 'a staff member'} from AI Dev Community.
           </p>
