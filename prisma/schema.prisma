@@ -37,6 +37,8 @@ model User {
   refreshTokens   RefreshToken[]
   registrations   Registration[]
   votes           Vote[]
+  quizAttempts    QuizAttempt[]
+  quizAnswers     QuizAnswer[]
 
   @@map("users")
 }
@@ -322,4 +324,77 @@ enum NotificationType {
   FORM_SUBMISSION
   COLLABORATION_INVITE
   COLLABORATION_ACCEPTED
+}
+
+enum QuizStatus {
+  UPCOMING
+  ACTIVE
+  CLOSED
+}
+
+model Quiz {
+  id          String      @id @default(uuid())
+  title       String
+  description String?     @db.Text
+  coverImage  String?     @map("cover_image")
+  timeLimit   Int         @map("time_limit") // seconds per question
+  startAt     DateTime    @map("start_at")
+  endAt       DateTime    @map("end_at")
+  status      QuizStatus  @default(UPCOMING)
+  createdBy   String      @map("created_by")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  
+  questions   QuizQuestion[]
+  attempts    QuizAttempt[]
+
+  @@map("quizzes")
+}
+
+model QuizQuestion {
+  id            String   @id @default(uuid())
+  quizId        String   @map("quiz_id")
+  question      String   @db.Text
+  options       Json     // [{id, text, isCorrect}]
+  points        Int      @default(1000) // max points for correct answer
+  order         Int
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers       QuizAnswer[]
+
+  @@map("quiz_questions")
+}
+
+model QuizAttempt {
+  id          String   @id @default(uuid())
+  quizId      String   @map("quiz_id")
+  userId      String   @map("user_id")
+  totalScore  Int      @default(0) @map("total_score")
+  completedAt DateTime @default(now()) @map("completed_at")
+  
+  quiz        Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers     QuizAnswer[]
+
+  @@unique([quizId, userId])
+  @@map("quiz_attempts")
+}
+
+model QuizAnswer {
+  id          String       @id @default(uuid())
+  attemptId   String       @map("attempt_id")
+  questionId  String       @map("question_id")
+  userId      String       @map("user_id")
+  selectedOption String    @map("selected_option") // option id
+  isCorrect   Boolean      @map("is_correct")
+  timeSpent   Int          @map("time_spent") // milliseconds
+  pointsEarned Int         @map("points_earned")
+  answeredAt  DateTime     @default(now()) @map("answered_at")
+  
+  attempt     QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question    QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("quiz_answers")
 }

@@ -14,6 +14,7 @@ import homeContentRoutes from './routes/home-content.routes';
 import contactRoutes from './routes/contact.routes';
 import collaborationRoutes from './routes/collaboration.routes';
 import messagingRoutes from './routes/messaging.routes';
+import quizRoutes from './routes/quiz.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -45,6 +46,7 @@ app.use('/api/home-content', homeContentRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/collaborations', collaborationRoutes);
 app.use('/api/messaging', messagingRoutes);
+app.use('/api/quizzes', quizRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
