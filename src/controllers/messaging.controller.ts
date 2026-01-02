@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
+import { AuthRequest } from '../middleware/auth';
 import prisma from '../lib/prisma';
 import { sendEmail } from '../services/email.service';
 
@@ -69,7 +70,7 @@ export const getEventUsers = asyncHandler(async (req: Request, res: Response) =>
 });
 
 // Send email to selected users
-export const sendMessageToUsers = asyncHandler(async (req: Request, res: Response) => {
+export const sendMessageToUsers = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { subject, message, recipientType, userIds, eventId } = req.body;
   const senderUser = req.user!;
 
