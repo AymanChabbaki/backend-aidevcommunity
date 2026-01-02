@@ -45,9 +45,60 @@ export const getAllEvents = asyncHandler(async (req: AuthRequest, res: Response)
       orderBy: { startAt: 'asc' }
     });
 
+    // Update event statuses based on dates (excluding CANCELLED)
+    const now = new Date();
+    const updates: Promise<any>[] = [];
+
+    for (const event of events) {
+      if (event.status === 'CANCELLED') continue;
+
+      const startDate = new Date(event.startAt);
+      const endDate = new Date(event.endAt);
+
+      let newStatus = event.status;
+      if (now < startDate) {
+        newStatus = 'UPCOMING';
+      } else if (now >= startDate && now < endDate) {
+        newStatus = 'ONGOING';
+      } else if (now >= endDate) {
+        newStatus = 'COMPLETED';
+      }
+
+      if (newStatus !== event.status) {
+        updates.push(
+          prisma.event.update({
+            where: { id: event.id },
+            data: { status: newStatus }
+          })
+        );
+      }
+    }
+
+    if (updates.length > 0) {
+      await Promise.all(updates);
+    }
+
+    // Refetch events after updates
+    const updatedEvents = await prisma.event.findMany({
+      where,
+      include: {
+        organizer: {
+          select: {
+            id: true,
+            displayName: true,
+            photoUrl: true
+          }
+        },
+        _count: {
+          select: { registrations: true }
+        }
+      },
+      orderBy: { startAt: 'asc' }
+    });
+
     res.json({
       success: true,
-      data: events
+      data: updatedEvents
     });
   } catch (error: any) {
     console.error('Error fetching events:', error);

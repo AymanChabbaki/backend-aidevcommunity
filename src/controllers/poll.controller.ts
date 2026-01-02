@@ -22,8 +22,35 @@ export const getAllPolls = asyncHandler(async (req: AuthRequest, res: Response) 
     orderBy: { createdAt: 'desc' }
   });
 
+  // Update expired polls status in database
+  const now = new Date();
+  const pollsToUpdate = polls.filter(poll => {
+    const endDate = new Date(poll.endAt);
+    return endDate < now && poll.status === 'ACTIVE';
+  });
+
+  if (pollsToUpdate.length > 0) {
+    await prisma.poll.updateMany({
+      where: {
+        id: { in: pollsToUpdate.map(p => p.id) }
+      },
+      data: { status: 'CLOSED' }
+    });
+  }
+
+  // Refetch polls after update
+  const updatedPolls = await prisma.poll.findMany({
+    where,
+    include: {
+      _count: {
+        select: { votes: true }
+      }
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+
   // Calculate vote counts per option
-  const pollsWithVoteCounts = await Promise.all(polls.map(async (poll) => {
+  const pollsWithVoteCounts = await Promise.all(updatedPolls.map(async (poll) => {
     const options = poll.options as any[];
     const votes = await prisma.vote.findMany({
       where: { pollId: poll.id },
