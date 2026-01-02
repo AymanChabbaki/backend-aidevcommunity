@@ -225,7 +225,8 @@ export const checkUserAttempt = asyncHandler(async (req: AuthRequest, res: Respo
 
   res.json({
     success: true,
-    data: attempt
+    hasAttempted: !!attempt,
+    attempt: attempt
   });
 });
 
@@ -326,9 +327,21 @@ export const submitQuizAnswers = asyncHandler(async (req: AuthRequest, res: Resp
     }
   });
 
+  // Calculate rank
+  const rank = await prisma.quizAttempt.count({
+    where: {
+      quizId: id,
+      totalScore: {
+        gt: totalScore
+      }
+    }
+  }) + 1;
+
   res.json({
     success: true,
-    data: attempt
+    attempt,
+    totalScore,
+    rank
   });
 });
 
@@ -343,6 +356,7 @@ export const getQuizLeaderboard = asyncHandler(async (req: AuthRequest, res: Res
         select: {
           id: true,
           displayName: true,
+          email: true,
           photoUrl: true
         }
       }
@@ -351,9 +365,19 @@ export const getQuizLeaderboard = asyncHandler(async (req: AuthRequest, res: Res
     take: 50
   });
 
+  // Format leaderboard data
+  const leaderboard = attempts.map((attempt, index) => ({
+    userId: attempt.userId,
+    displayName: attempt.user.displayName,
+    email: attempt.user.email,
+    profilePicture: attempt.user.photoUrl,
+    totalScore: attempt.totalScore,
+    rank: index + 1
+  }));
+
   res.json({
     success: true,
-    data: attempts
+    data: leaderboard
   });
 });
 
@@ -376,6 +400,7 @@ export const getMonthlyLeaderboard = asyncHandler(async (req: AuthRequest, res: 
         select: {
           id: true,
           displayName: true,
+          email: true,
           photoUrl: true
         }
       }
@@ -387,7 +412,10 @@ export const getMonthlyLeaderboard = asyncHandler(async (req: AuthRequest, res: 
     const userId = attempt.userId;
     if (!acc[userId]) {
       acc[userId] = {
-        user: attempt.user,
+        userId: userId,
+        displayName: attempt.user.displayName,
+        email: attempt.user.email,
+        profilePicture: attempt.user.photoUrl,
         totalScore: 0,
         quizCount: 0
       };
@@ -400,7 +428,11 @@ export const getMonthlyLeaderboard = asyncHandler(async (req: AuthRequest, res: 
   // Convert to array and sort
   const leaderboard = Object.values(userScores)
     .sort((a: any, b: any) => b.totalScore - a.totalScore)
-    .slice(0, 50);
+    .slice(0, 50)
+    .map((entry: any, index) => ({
+      ...entry,
+      rank: index + 1
+    }));
 
   res.json({
     success: true,
