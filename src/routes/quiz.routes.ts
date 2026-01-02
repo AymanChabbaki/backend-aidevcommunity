@@ -9,7 +9,8 @@ import {
   checkUserAttempt,
   submitQuizAnswers,
   getQuizLeaderboard,
-  getMonthlyLeaderboard
+  getMonthlyLeaderboard,
+  deleteQuizParticipant
 } from '../controllers/quiz.controller';
 
 const router = express.Router();
@@ -28,5 +29,6 @@ router.post('/:id/submit', authenticate, submitQuizAnswers);
 router.post('/', authenticate, authorize('STAFF', 'ADMIN'), createQuiz);
 router.put('/:id', authenticate, authorize('STAFF', 'ADMIN'), updateQuiz);
 router.delete('/:id', authenticate, authorize('STAFF', 'ADMIN'), deleteQuiz);
+router.delete('/:id/participants/:userId', authenticate, authorize('STAFF', 'ADMIN'), deleteQuizParticipant);
 
 export default router;

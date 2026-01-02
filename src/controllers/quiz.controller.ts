@@ -439,3 +439,43 @@ export const getMonthlyLeaderboard = asyncHandler(async (req: AuthRequest, res: 
     data: leaderboard
   });
 });
+
+// Delete participant from quiz (Admin/Staff only)
+export const deleteQuizParticipant = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id: quizId, userId } = req.params;
+
+  // Verify quiz exists
+  const quiz = await prisma.quiz.findUnique({
+    where: { id: quizId }
+  });
+
+  if (!quiz) {
+    res.status(404).json({
+      success: false,
+      message: 'Quiz not found'
+    });
+    return;
+  }
+
+  // Delete all attempts for this user in this quiz
+  const deleted = await prisma.quizAttempt.deleteMany({
+    where: {
+      quizId: quizId,
+      userId: userId
+    }
+  });
+
+  if (deleted.count === 0) {
+    res.status(404).json({
+      success: false,
+      message: 'Participant not found in this quiz'
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    message: 'Participant deleted successfully',
+    deletedCount: deleted.count
+  });
+});
