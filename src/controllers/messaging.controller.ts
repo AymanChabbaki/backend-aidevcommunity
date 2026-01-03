@@ -174,77 +174,103 @@ export const sendMessageToUsers = asyncHandler(async (req: AuthRequest, res: Res
       .replace(/{{email}}/g, recipient.email);
   };
 
-  // Send emails to all recipients
-  const emailPromises = recipients.map((recipient) => {
-    const personalizedSubject = replaceVariables(subject, recipient);
-    const personalizedMessage = replaceVariables(message, recipient);
-    
-    // Check if this is a quiz notification (contains "quiz" in subject)
-    const isQuizNotification = subject.toLowerCase().includes('quiz');
-    const isEventNotification = subject.toLowerCase().includes('event');
-    const isPollNotification = subject.toLowerCase().includes('poll');
-    const isFormNotification = subject.toLowerCase().includes('form');
-    
-    let buttonHtml = '';
-    if (isQuizNotification) {
-      buttonHtml = `
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/quizzes" 
-             style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #f59e0b 0%, #dc2626 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            🎯 Take Quiz Now
-          </a>
-        </div>
-      `;
-    } else if (isEventNotification) {
-      buttonHtml = `
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/events" 
-             style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            📅 View Event Details
-          </a>
-        </div>
-      `;
-    } else if (isPollNotification) {
-      buttonHtml = `
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/polls" 
-             style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            📊 Vote Now
-          </a>
-        </div>
-      `;
-    } else if (isFormNotification) {
-      buttonHtml = `
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard" 
-             style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-            📝 Fill Form
-          </a>
-        </div>
-      `;
+  // Helper function to send emails in batches to avoid rate limits
+  const sendEmailsInBatches = async (recipients: Array<{ email: string; displayName: string }>, batchSize: number = 10, delayMs: number = 1000) => {
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const batch = recipients.slice(i, i + batchSize);
+      
+      const batchPromises = batch.map(async (recipient) => {
+        const personalizedSubject = replaceVariables(subject, recipient);
+        const personalizedMessage = replaceVariables(message, recipient);
+        
+        // Check if this is a quiz notification (contains "quiz" in subject)
+        const isQuizNotification = subject.toLowerCase().includes('quiz');
+        const isEventNotification = subject.toLowerCase().includes('event');
+        const isPollNotification = subject.toLowerCase().includes('poll');
+        const isFormNotification = subject.toLowerCase().includes('form');
+        
+        let buttonHtml = '';
+        if (isQuizNotification) {
+          buttonHtml = `
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/quizzes" 
+                 style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #f59e0b 0%, #dc2626 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                🎯 Take Quiz Now
+              </a>
+            </div>
+          `;
+        } else if (isEventNotification) {
+          buttonHtml = `
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/events" 
+                 style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                📅 View Event Details
+              </a>
+            </div>
+          `;
+        } else if (isPollNotification) {
+          buttonHtml = `
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/polls" 
+                 style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                📊 Vote Now
+              </a>
+            </div>
+          `;
+        } else if (isFormNotification) {
+          buttonHtml = `
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard" 
+                 style="display: inline-block; padding: 15px 40px; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                📝 Fill Form
+              </a>
+            </div>
+          `;
+        }
+        
+        try {
+          await sendEmail({
+            to: recipient.email,
+            subject: personalizedSubject,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #333;">Message from ${senderUser.role === 'ADMIN' ? 'Admin' : 'Staff'}</h2>
+                <p>Hello ${recipient.displayName},</p>
+                <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
+                  ${personalizedMessage.replace(/\n/g, '<br>')}
+                </div>
+                ${buttonHtml}
+                <p style="color: #666; font-size: 12px; margin-top: 30px;">
+                  This message was sent by ${senderUser.role === 'ADMIN' ? 'an administrator' : 'a staff member'} from AI Dev Community.
+                </p>
+              </div>
+            `,
+          });
+          successCount++;
+          return true;
+        } catch (error) {
+          console.error(`Failed to send email to ${recipient.email}:`, error);
+          failureCount++;
+          return false;
+        }
+      });
+
+      await Promise.all(batchPromises);
+
+      // Add delay between batches to avoid rate limits (except for last batch)
+      if (i + batchSize < recipients.length) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
     }
-    
-    return sendEmail({
-      to: recipient.email,
-      subject: personalizedSubject,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Message from ${senderUser.role === 'ADMIN' ? 'Admin' : 'Staff'}</h2>
-          <p>Hello ${recipient.displayName},</p>
-          <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
-            ${personalizedMessage.replace(/\n/g, '<br>')}
-          </div>
-          ${buttonHtml}
-          <p style="color: #666; font-size: 12px; margin-top: 30px;">
-            This message was sent by ${senderUser.role === 'ADMIN' ? 'an administrator' : 'a staff member'} from AI Dev Community.
-          </p>
-        </div>
-      `,
-    });
-  });
+
+    return { successCount, failureCount };
+  };
 
   try {
-    await Promise.all(emailPromises);
+    const { successCount, failureCount } = await sendEmailsInBatches(recipients);
 
     // Log the message sending activity
     await prisma.auditLog.create({
@@ -257,15 +283,27 @@ export const sendMessageToUsers = asyncHandler(async (req: AuthRequest, res: Res
           subject,
           recipientType,
           recipientCount: recipients.length,
+          successCount,
+          failureCount,
           ...(eventId && { eventId }),
         },
       },
     });
 
-    res.json({
-      success: true,
-      message: `Email sent successfully to ${recipients.length} recipient${recipients.length > 1 ? 's' : ''}`,
-    });
+    if (failureCount > 0) {
+      res.json({
+        success: true,
+        message: `Email sent successfully to ${successCount} recipient(s). ${failureCount} failed.`,
+        successCount,
+        failureCount,
+      });
+    } else {
+      res.json({
+        success: true,
+        message: `Email sent successfully to ${successCount} recipient(s)`,
+        successCount,
+      });
+    }
   } catch (error) {
     console.error('Error sending emails:', error);
     res.status(500).json({
