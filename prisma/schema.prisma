@@ -377,6 +377,8 @@ model QuizAttempt {
   flagReason  String?  @map("flag_reason") @db.Text
   tabSwitches Int      @default(0) @map("tab_switches")
   afkIncidents Int     @default(0) @map("afk_incidents")
+  screenshotAttempts Int @default(0) @map("screenshot_attempts")
+  suspiciousExtensions Json? @map("suspicious_extensions")
   inactivityPeriods Json? @map("inactivity_periods")
   suspiciousActivity Json? @map("suspicious_activity")
   

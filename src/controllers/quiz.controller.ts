@@ -233,7 +233,14 @@ export const checkUserAttempt = asyncHandler(async (req: AuthRequest, res: Respo
 // Submit quiz answers
 export const submitQuizAnswers = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { answers, tabSwitches = 0, afkIncidents = 0, inactivityPeriods = [] } = req.body; // [{questionId, selectedOption, timeSpent}]
+  const { 
+    answers, 
+    tabSwitches = 0, 
+    afkIncidents = 0, 
+    inactivityPeriods = [],
+    screenshotAttempts = 0,
+    detectedExtensions = []
+  } = req.body; // [{questionId, selectedOption, timeSpent}]
   const userId = req.user!.id;
 
   // Check if already attempted
@@ -344,6 +351,20 @@ export const submitQuizAnswers = asyncHandler(async (req: AuthRequest, res: Resp
     }
   }
 
+  // 8. Check screenshot attempts
+  if (screenshotAttempts > 0) {
+    suspiciousActivities.push(`${screenshotAttempts} screenshot attempt(s) detected and blocked`);
+    if (screenshotAttempts > 2) {
+      isFlagged = true;
+    }
+  }
+
+  // 9. Check for suspicious browser extensions
+  if (detectedExtensions && detectedExtensions.length > 0) {
+    suspiciousActivities.push(`Suspicious browser extensions detected: ${detectedExtensions.join(', ')}`);
+    isFlagged = true;
+  }
+
   // Calculate scores
   let totalScore = 0;
   const answerData = answers.map((answer: any) => {
@@ -383,6 +404,8 @@ export const submitQuizAnswers = asyncHandler(async (req: AuthRequest, res: Resp
       totalScore,
       tabSwitches,
       afkIncidents,
+      screenshotAttempts,
+      suspiciousExtensions: detectedExtensions.length > 0 ? detectedExtensions : undefined,
       inactivityPeriods: inactivityPeriods.length > 0 ? inactivityPeriods : undefined,
       isFlagged,
       flagReason: suspiciousActivities.length > 0 ? suspiciousActivities.join('; ') : null,
@@ -463,6 +486,8 @@ export const getQuizLeaderboard = asyncHandler(async (req: AuthRequest, res: Res
       flagReason: attempt.flagReason,
       tabSwitches: attempt.tabSwitches,
       afkIncidents: attempt.afkIncidents,
+      screenshotAttempts: attempt.screenshotAttempts,
+      suspiciousExtensions: attempt.suspiciousExtensions,
       inactivityPeriods: attempt.inactivityPeriods,
       rank: index + 1
     };
