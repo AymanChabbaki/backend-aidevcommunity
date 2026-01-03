@@ -341,7 +341,9 @@ export const submitQuizAnswers = asyncHandler(async (req: AuthRequest, res: Resp
       tabSwitches,
       isFlagged,
       flagReason: suspiciousActivities.length > 0 ? suspiciousActivities.join('; ') : null,
-      suspiciousActivity: suspiciousActivities.length > 0 ? { activities: suspiciousActivities, timestamp: new Date() } : null,
+      suspiciousActivity: suspiciousActivities.length > 0 
+        ? { activities: suspiciousActivities, timestamp: new Date() } 
+        : undefined,
       answers: {
         create: answerData
       }
