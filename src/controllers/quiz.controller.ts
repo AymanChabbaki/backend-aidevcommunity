@@ -359,21 +359,34 @@ export const getQuizLeaderboard = asyncHandler(async (req: AuthRequest, res: Res
           email: true,
           photoUrl: true
         }
+      },
+      answers: {
+        select: {
+          isCorrect: true
+        }
       }
     },
     orderBy: { totalScore: 'desc' },
     take: 50
   });
 
-  // Format leaderboard data
-  const leaderboard = attempts.map((attempt, index) => ({
-    userId: attempt.userId,
-    displayName: attempt.user.displayName,
-    email: attempt.user.email,
-    profilePicture: attempt.user.photoUrl,
-    totalScore: attempt.totalScore,
-    rank: index + 1
-  }));
+  // Format leaderboard data with correct/incorrect counts
+  const leaderboard = attempts.map((attempt, index) => {
+    const correctAnswers = attempt.answers.filter(answer => answer.isCorrect).length;
+    const incorrectAnswers = attempt.answers.filter(answer => !answer.isCorrect).length;
+    
+    return {
+      userId: attempt.userId,
+      displayName: attempt.user.displayName,
+      email: attempt.user.email,
+      profilePicture: attempt.user.photoUrl,
+      totalScore: attempt.totalScore,
+      correctAnswers,
+      incorrectAnswers,
+      totalQuestions: correctAnswers + incorrectAnswers,
+      rank: index + 1
+    };
+  });
 
   res.json({
     success: true,
