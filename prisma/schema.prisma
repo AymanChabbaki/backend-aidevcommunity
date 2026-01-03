@@ -376,6 +376,8 @@ model QuizAttempt {
   isFlagged   Boolean  @default(false) @map("is_flagged")
   flagReason  String?  @map("flag_reason") @db.Text
   tabSwitches Int      @default(0) @map("tab_switches")
+  afkIncidents Int     @default(0) @map("afk_incidents")
+  inactivityPeriods Json? @map("inactivity_periods")
   suspiciousActivity Json? @map("suspicious_activity")
   
   quiz        Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)

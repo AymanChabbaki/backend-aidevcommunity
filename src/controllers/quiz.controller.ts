@@ -233,7 +233,7 @@ export const checkUserAttempt = asyncHandler(async (req: AuthRequest, res: Respo
 // Submit quiz answers
 export const submitQuizAnswers = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { answers, tabSwitches = 0 } = req.body; // [{questionId, selectedOption, timeSpent}]
+  const { answers, tabSwitches = 0, afkIncidents = 0, inactivityPeriods = [] } = req.body; // [{questionId, selectedOption, timeSpent}]
   const userId = req.user!.id;
 
   // Check if already attempted
@@ -294,11 +294,54 @@ export const submitQuizAnswers = asyncHandler(async (req: AuthRequest, res: Resp
     isFlagged = true;
   }
 
-  // 3. Check if all answers are suspiciously fast
+  // 3. Check if many answers are suspiciously fast
   const tooFastAnswers = answers.filter((ans: any) => ans.timeSpent < 1000).length;
   if (tooFastAnswers > answers.length * 0.5) { // More than 50% answered in less than 1 second
     suspiciousActivities.push(`${tooFastAnswers} answers submitted in less than 1 second`);
     isFlagged = true;
+  }
+
+  // 4. Check AFK incidents (being away from keyboard during quiz)
+  if (afkIncidents > 2) {
+    suspiciousActivities.push(`${afkIncidents} AFK incidents detected (extended periods without activity)`);
+    isFlagged = true;
+  }
+
+  // 5. Phone cheating detection - consistent medium delays pattern
+  // If user consistently takes 5-20 seconds per question (time to type on phone and search)
+  const mediumDelayAnswers = answers.filter((ans: any) => ans.timeSpent >= 5000 && ans.timeSpent <= 20000).length;
+  const consistentTimingPattern = mediumDelayAnswers > answers.length * 0.7; // More than 70% in this range
+  
+  // Calculate time variance to detect too-consistent patterns
+  const mean = avgTimePerQuestion;
+  const variance = answers.reduce((sum: number, ans: any) => {
+    return sum + Math.pow(ans.timeSpent - mean, 2);
+  }, 0) / answers.length;
+  const standardDeviation = Math.sqrt(variance);
+  const coefficientOfVariation = standardDeviation / mean;
+  
+  // Low variation (< 0.3) with medium delays suggests phone usage
+  if (consistentTimingPattern && coefficientOfVariation < 0.3 && avgTimePerQuestion > 5000) {
+    suspiciousActivities.push(`Suspicious timing pattern detected (consistent ${Math.round(avgTimePerQuestion / 1000)}s delays suggest external device usage)`);
+    isFlagged = true;
+  }
+
+  // 6. Check for very long delays (suspiciously long on specific questions)
+  const veryLongAnswers = answers.filter((ans: any) => ans.timeSpent > 30000).length; // > 30 seconds
+  if (veryLongAnswers > 2) {
+    suspiciousActivities.push(`${veryLongAnswers} questions took more than 30 seconds (possible research time)`);
+    isFlagged = true;
+  }
+
+  // 7. Analyze inactivity periods for phone cheating patterns
+  if (inactivityPeriods && inactivityPeriods.length > 0) {
+    const longInactivity = inactivityPeriods.filter((period: any) => period.duration > 15000).length;
+    if (longInactivity > 1) {
+      suspiciousActivities.push(`${longInactivity} extended inactivity periods detected (possible phone usage or distraction)`);
+      if (longInactivity > 3) {
+        isFlagged = true;
+      }
+    }
   }
 
   // Calculate scores
@@ -339,6 +382,8 @@ export const submitQuizAnswers = asyncHandler(async (req: AuthRequest, res: Resp
       userId,
       totalScore,
       tabSwitches,
+      afkIncidents,
+      inactivityPeriods: inactivityPeriods.length > 0 ? inactivityPeriods : undefined,
       isFlagged,
       flagReason: suspiciousActivities.length > 0 ? suspiciousActivities.join('; ') : null,
       suspiciousActivity: suspiciousActivities.length > 0 
@@ -417,6 +462,8 @@ export const getQuizLeaderboard = asyncHandler(async (req: AuthRequest, res: Res
       isFlagged: attempt.isFlagged,
       flagReason: attempt.flagReason,
       tabSwitches: attempt.tabSwitches,
+      afkIncidents: attempt.afkIncidents,
+      inactivityPeriods: attempt.inactivityPeriods,
       rank: index + 1
     };
   });
