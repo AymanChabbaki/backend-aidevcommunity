@@ -233,7 +233,7 @@ export const checkUserAttempt = asyncHandler(async (req: AuthRequest, res: Respo
 // Submit quiz answers
 export const submitQuizAnswers = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { answers } = req.body; // [{questionId, selectedOption, timeSpent}]
+  const { answers, tabSwitches = 0 } = req.body; // [{questionId, selectedOption, timeSpent}]
   const userId = req.user!.id;
 
   // Check if already attempted
@@ -277,6 +277,30 @@ export const submitQuizAnswers = asyncHandler(async (req: AuthRequest, res: Resp
     });
   }
 
+  // Anti-cheat detection
+  const suspiciousActivities: string[] = [];
+  let isFlagged = false;
+
+  // 1. Check tab switches (more than 3 is suspicious)
+  if (tabSwitches > 3) {
+    suspiciousActivities.push(`Switched tabs ${tabSwitches} times`);
+    isFlagged = true;
+  }
+
+  // 2. Check answer speed - too fast is suspicious
+  const avgTimePerQuestion = answers.reduce((sum: number, ans: any) => sum + ans.timeSpent, 0) / answers.length;
+  if (avgTimePerQuestion < 2000) { // Less than 2 seconds per question
+    suspiciousActivities.push(`Answered too fast (avg ${Math.round(avgTimePerQuestion)}ms per question)`);
+    isFlagged = true;
+  }
+
+  // 3. Check if all answers are suspiciously fast
+  const tooFastAnswers = answers.filter((ans: any) => ans.timeSpent < 1000).length;
+  if (tooFastAnswers > answers.length * 0.5) { // More than 50% answered in less than 1 second
+    suspiciousActivities.push(`${tooFastAnswers} answers submitted in less than 1 second`);
+    isFlagged = true;
+  }
+
   // Calculate scores
   let totalScore = 0;
   const answerData = answers.map((answer: any) => {
@@ -314,6 +338,10 @@ export const submitQuizAnswers = asyncHandler(async (req: AuthRequest, res: Resp
       quizId: id,
       userId,
       totalScore,
+      tabSwitches,
+      isFlagged,
+      flagReason: suspiciousActivities.length > 0 ? suspiciousActivities.join('; ') : null,
+      suspiciousActivity: suspiciousActivities.length > 0 ? { activities: suspiciousActivities, timestamp: new Date() } : null,
       answers: {
         create: answerData
       }
@@ -384,6 +412,9 @@ export const getQuizLeaderboard = asyncHandler(async (req: AuthRequest, res: Res
       correctAnswers,
       incorrectAnswers,
       totalQuestions: correctAnswers + incorrectAnswers,
+      isFlagged: attempt.isFlagged,
+      flagReason: attempt.flagReason,
+      tabSwitches: attempt.tabSwitches,
       rank: index + 1
     };
   });

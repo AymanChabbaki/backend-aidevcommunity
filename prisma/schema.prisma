@@ -373,6 +373,10 @@ model QuizAttempt {
   userId      String   @map("user_id")
   totalScore  Int      @default(0) @map("total_score")
   completedAt DateTime @default(now()) @map("completed_at")
+  isFlagged   Boolean  @default(false) @map("is_flagged")
+  flagReason  String?  @map("flag_reason") @db.Text
+  tabSwitches Int      @default(0) @map("tab_switches")
+  suspiciousActivity Json? @map("suspicious_activity")
   
   quiz        Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
