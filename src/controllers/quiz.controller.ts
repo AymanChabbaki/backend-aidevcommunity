@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
 import prisma from '../lib/prisma';
+import { sendEmail } from '../lib/email';
 
 // Get all quizzes
 export const getAllQuizzes = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -580,6 +581,50 @@ export const reduceParticipantPoints = asyncHandler(async (req: AuthRequest, res
       isFlagged: true
     }
   });
+
+  // Send email notification to the user
+  const quiz = await prisma.quiz.findUnique({ where: { id } });
+  
+  if (quiz && attempt.user.email) {
+    const emailSubject = `⚠️ Quiz Points Reduced - ${quiz.title}`;
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 8px;">
+        <h2 style="color: #856404; margin-top: 0;">⚠️ Points Penalty Applied</h2>
+        
+        <p style="font-size: 16px; color: #333;">Hello <strong>${attempt.user.displayName}</strong>,</p>
+        
+        <p style="font-size: 16px; color: #333;">
+          We have detected suspicious activity during your attempt at the quiz <strong>"${quiz.title}"</strong>.
+        </p>
+
+        <div style="background-color: #fff; padding: 15px; border-left: 4px solid #dc3545; margin: 20px 0;">
+          <h3 style="color: #dc3545; margin-top: 0;">Cheating Evidence Detected:</h3>
+          <p style="margin: 5px 0;"><strong>Original Score:</strong> ${attempt.totalScore} points</p>
+          <p style="margin: 5px 0;"><strong>Points Reduced:</strong> ${pointsToReduce} points</p>
+          <p style="margin: 5px 0;"><strong>New Score:</strong> ${newScore} points</p>
+          <p style="margin: 10px 0;"><strong>Reason:</strong> ${reductionReason}</p>
+        </div>
+
+        <div style="background-color: #f8d7da; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="color: #721c24; margin: 0;"><strong>⚠️ Important:</strong> Academic integrity is essential. Future violations may result in complete disqualification from quizzes.</p>
+        </div>
+
+        <p style="font-size: 14px; color: #666; margin-top: 20px;">
+          If you believe this is an error, please contact the quiz administrator for clarification.
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
+        <p style="font-size: 12px; color: #999;">This is an automated message. Please do not reply to this email.</p>
+      </div>
+    `;
+
+    try {
+      await sendEmail(attempt.user.email, emailSubject, emailHtml);
+    } catch (emailError) {
+      console.error('Failed to send penalty email:', emailError);
+      // Continue even if email fails
+    }
+  }
 
   res.json({
     success: true,
