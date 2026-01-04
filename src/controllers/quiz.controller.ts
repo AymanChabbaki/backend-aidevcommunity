@@ -522,6 +522,7 @@ export const getQuizLeaderboard = asyncHandler(async (req: AuthRequest, res: Res
       screenshotAttempts: attempt.screenshotAttempts,
       suspiciousExtensions: attempt.suspiciousExtensions,
       inactivityPeriods: attempt.inactivityPeriods,
+      hasPenalty: attempt.flagReason ? attempt.flagReason.includes('PENALTY') : false,
       rank: index + 1
     };
   });
@@ -673,11 +674,16 @@ export const getMonthlyLeaderboard = asyncHandler(async (req: AuthRequest, res: 
         email: attempt.user.email,
         profilePicture: attempt.user.photoUrl,
         totalScore: 0,
-        quizCount: 0
+        quizCount: 0,
+        hasPenalty: false
       };
     }
     acc[userId].totalScore += attempt.totalScore;
     acc[userId].quizCount += 1;
+    // Check if any attempt has a penalty
+    if (attempt.flagReason && attempt.flagReason.includes('PENALTY')) {
+      acc[userId].hasPenalty = true;
+    }
     return acc;
   }, {});
 
