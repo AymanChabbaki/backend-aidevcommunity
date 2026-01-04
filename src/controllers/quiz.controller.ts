@@ -148,12 +148,13 @@ export const updateQuiz = asyncHandler(async (req: AuthRequest, res: Response) =
   }
 
   // Delete old questions if new ones provided
-  if (questions) {
+  if (questions && questions.length > 0) {
     await prisma.quizQuestion.deleteMany({
       where: { quizId: id }
     });
   }
 
+  // Update quiz basic info
   const updatedQuiz = await prisma.quiz.update({
     where: { id },
     data: {
@@ -163,25 +164,35 @@ export const updateQuiz = asyncHandler(async (req: AuthRequest, res: Response) =
       timeLimit,
       startAt: startAt ? new Date(startAt) : undefined,
       endAt: endAt ? new Date(endAt) : undefined,
-      ...(questions && {
-        questions: {
-          create: questions.map((q: any, index: number) => ({
-            question: q.question,
-            options: q.options,
-            points: q.points || 1000,
-            order: index
-          }))
-        }
-      })
-    },
+    }
+  });
+
+  // Create new questions if provided
+  if (questions && questions.length > 0) {
+    await prisma.quizQuestion.createMany({
+      data: questions.map((q: any, index: number) => ({
+        quizId: id,
+        question: q.question,
+        options: q.options,
+        points: q.points || 1000,
+        order: index
+      }))
+    });
+  }
+
+  // Fetch updated quiz with questions
+  const finalQuiz = await prisma.quiz.findUnique({
+    where: { id },
     include: {
-      questions: true
+      questions: {
+        orderBy: { order: 'asc' }
+      }
     }
   });
 
   res.json({
     success: true,
-    data: updatedQuiz
+    data: finalQuiz
   });
 });
 
