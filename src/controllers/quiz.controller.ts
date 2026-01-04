@@ -138,7 +138,13 @@ export const updateQuiz = asyncHandler(async (req: AuthRequest, res: Response) =
   const { id } = req.params;
   const { title, description, coverImage, timeLimit, startAt, endAt, questions } = req.body;
 
-  const quiz = await prisma.quiz.findUnique({ where: { id } });
+  const quiz = await prisma.quiz.findUnique({ 
+    where: { id },
+    include: {
+      attempts: true,
+      questions: true
+    }
+  });
 
   if (!quiz) {
     return res.status(404).json({
@@ -147,15 +153,23 @@ export const updateQuiz = asyncHandler(async (req: AuthRequest, res: Response) =
     });
   }
 
-  // Delete old questions if new ones provided
-  if (questions && questions.length > 0) {
-    await prisma.quizQuestion.deleteMany({
-      where: { quizId: id }
-    });
+  // Check if quiz has attempts - if yes, only allow updating basic info, not questions
+  const hasAttempts = quiz.attempts && quiz.attempts.length > 0;
+
+  if (hasAttempts && questions && questions.length > 0) {
+    // Check if questions are being modified
+    const questionsChanged = JSON.stringify(quiz.questions) !== JSON.stringify(questions);
+    
+    if (questionsChanged) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot modify questions after users have taken the quiz. You can only update title, description, cover image, and time settings.'
+      });
+    }
   }
 
-  // Update quiz basic info
-  const updatedQuiz = await prisma.quiz.update({
+  // Update quiz basic info (always allowed)
+  await prisma.quiz.update({
     where: { id },
     data: {
       title,
@@ -167,8 +181,14 @@ export const updateQuiz = asyncHandler(async (req: AuthRequest, res: Response) =
     }
   });
 
-  // Create new questions if provided
-  if (questions && questions.length > 0) {
+  // Only update questions if quiz has no attempts
+  if (!hasAttempts && questions && questions.length > 0) {
+    // Delete old questions
+    await prisma.quizQuestion.deleteMany({
+      where: { quizId: id }
+    });
+
+    // Create new questions
     await prisma.quizQuestion.createMany({
       data: questions.map((q: any, index: number) => ({
         quizId: id,
@@ -192,7 +212,8 @@ export const updateQuiz = asyncHandler(async (req: AuthRequest, res: Response) =
 
   res.json({
     success: true,
-    data: finalQuiz
+    data: finalQuiz,
+    message: hasAttempts ? 'Quiz updated (questions preserved due to existing attempts)' : 'Quiz updated successfully'
   });
 });
 
