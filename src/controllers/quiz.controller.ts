@@ -675,14 +675,16 @@ export const getMonthlyLeaderboard = asyncHandler(async (req: AuthRequest, res: 
         profilePicture: attempt.user.photoUrl,
         totalScore: 0,
         quizCount: 0,
-        hasPenalty: false
+        hasPenalty: false,
+        flagReason: null
       };
     }
     acc[userId].totalScore += attempt.totalScore;
     acc[userId].quizCount += 1;
-    // Check if any attempt has a penalty
+    // Check if any attempt has a penalty and store the most recent penalty reason
     if (attempt.flagReason && attempt.flagReason.includes('PENALTY')) {
       acc[userId].hasPenalty = true;
+      acc[userId].flagReason = attempt.flagReason;
     }
     return acc;
   }, {});
