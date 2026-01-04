@@ -531,6 +531,67 @@ export const getQuizLeaderboard = asyncHandler(async (req: AuthRequest, res: Res
   });
 });
 
+// Reduce points from a participant (for cheating penalties)
+export const reduceParticipantPoints = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id, userId } = req.params;
+  const { pointsToReduce, reason } = req.body;
+
+  if (!pointsToReduce || pointsToReduce <= 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'Points to reduce must be a positive number'
+    });
+  }
+
+  const attempt = await prisma.quizAttempt.findUnique({
+    where: {
+      quizId_userId: {
+        quizId: id,
+        userId
+      }
+    },
+    include: {
+      user: true
+    }
+  });
+
+  if (!attempt) {
+    return res.status(404).json({
+      success: false,
+      error: 'Quiz attempt not found'
+    });
+  }
+
+  const newScore = Math.max(0, attempt.totalScore - pointsToReduce);
+  const reductionReason = reason || 'Points reduced due to cheating detection';
+
+  await prisma.quizAttempt.update({
+    where: {
+      quizId_userId: {
+        quizId: id,
+        userId
+      }
+    },
+    data: {
+      totalScore: newScore,
+      flagReason: attempt.flagReason 
+        ? `${attempt.flagReason}; PENALTY: ${pointsToReduce} points reduced - ${reductionReason}`
+        : `PENALTY: ${pointsToReduce} points reduced - ${reductionReason}`,
+      isFlagged: true
+    }
+  });
+
+  res.json({
+    success: true,
+    message: `Successfully reduced ${pointsToReduce} points from ${attempt.user.displayName}`,
+    data: {
+      oldScore: attempt.totalScore,
+      newScore: newScore,
+      pointsReduced: pointsToReduce
+    }
+  });
+});
+
 // Get monthly global leaderboard
 export const getMonthlyLeaderboard = asyncHandler(async (req: AuthRequest, res: Response) => {
   const now = new Date();
