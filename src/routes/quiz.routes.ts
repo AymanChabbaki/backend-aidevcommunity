@@ -10,7 +10,8 @@ import {
   submitQuizAnswers,
   getQuizLeaderboard,
   getMonthlyLeaderboard,
-  deleteQuizParticipant
+  deleteQuizParticipant,
+  reduceParticipantPoints
 } from '../controllers/quiz.controller';
 
 const router = express.Router();
@@ -30,5 +31,6 @@ router.post('/', authenticate, authorize('STAFF', 'ADMIN'), createQuiz);
 router.put('/:id', authenticate, authorize('STAFF', 'ADMIN'), updateQuiz);
 router.delete('/:id', authenticate, authorize('STAFF', 'ADMIN'), deleteQuiz);
 router.delete('/:id/participants/:userId', authenticate, authorize('STAFF', 'ADMIN'), deleteQuizParticipant);
+router.put('/:id/participants/:userId/reduce-points', authenticate, authorize('STAFF', 'ADMIN'), reduceParticipantPoints);
 
 export default router;
