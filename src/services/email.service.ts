@@ -18,6 +18,7 @@ interface EmailOptions {
   subject: string;
   html: string;
   text?: string;
+  attachments?: { filename?: string; path: string; contentType?: string }[];
 }
 
 export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
@@ -36,6 +37,7 @@ export const sendEmail = async (options: EmailOptions): Promise<boolean> => {
       subject: options.subject,
       text: options.text,
       html: options.html,
+      attachments: options.attachments,
     };
 
     await transporter.sendMail(mailOptions);

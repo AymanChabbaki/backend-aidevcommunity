@@ -72,7 +72,7 @@ export const getEventUsers = asyncHandler(async (req: Request, res: Response) =>
 
 // Send email to selected users
 export const sendMessageToUsers = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { subject, message, recipientType, userIds, eventId } = req.body;
+  const { subject, message, recipientType, userIds, eventId, attachments } = req.body;
   const senderUser = req.user!;
 
   if (!subject || !message) {
@@ -232,6 +232,24 @@ export const sendMessageToUsers = asyncHandler(async (req: AuthRequest, res: Res
         }
         
         try {
+          // If attachments were provided, include them in the mail options
+          const mailAttachments = Array.isArray(attachments)
+            ? attachments.map((a: any) => ({ filename: a.filename || a.path.split('/').pop(), path: a.path, contentType: a.contentType }))
+            : undefined;
+
+          // Build attachments HTML links if present
+          let attachmentsHtml = '';
+          if (mailAttachments && mailAttachments.length > 0) {
+            attachmentsHtml = `
+              <div style="margin-top:20px;">
+                <p><strong>Attachments:</strong></p>
+                <ul>
+                  ${mailAttachments.map(att => `<li><a href="${att.path}" target="_blank">${att.filename}</a></li>`).join('')}
+                </ul>
+              </div>
+            `;
+          }
+
           await sendEmail({
             to: recipient.email,
             subject: personalizedSubject,
@@ -243,11 +261,13 @@ export const sendMessageToUsers = asyncHandler(async (req: AuthRequest, res: Res
                   ${personalizedMessage.replace(/\n/g, '<br>')}
                 </div>
                 ${buttonHtml}
+                ${attachmentsHtml}
                 <p style="color: #666; font-size: 12px; margin-top: 30px;">
                   This message was sent by ${senderUser.role === 'ADMIN' ? 'an administrator' : 'a staff member'} from AI Dev Community.
                 </p>
               </div>
             `,
+            attachments: mailAttachments,
           });
           successCount++;
           return true;
@@ -286,6 +306,7 @@ export const sendMessageToUsers = asyncHandler(async (req: AuthRequest, res: Res
           successCount,
           failureCount,
           ...(eventId && { eventId }),
+          ...(attachments && { attachments }),
         },
       },
     });
