@@ -15,6 +15,7 @@ import contactRoutes from './routes/contact.routes';
 import collaborationRoutes from './routes/collaboration.routes';
 import messagingRoutes from './routes/messaging.routes';
 import quizRoutes from './routes/quiz.routes';
+import podcastRoutes from './routes/podcast.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -27,7 +28,7 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:8081','https://aidevcommunity.vercel.app'],
+  origin: ['http://localhost:5173', 'http://localhost:8080','https://aidevcommunity.vercel.app'],
   credentials: true
 }));
 app.use(express.json());
@@ -47,6 +48,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/collaborations', collaborationRoutes);
 app.use('/api/messaging', messagingRoutes);
 app.use('/api/quizzes', quizRoutes);
+app.use('/api/podcasts', podcastRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

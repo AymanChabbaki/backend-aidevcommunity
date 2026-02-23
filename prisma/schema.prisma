@@ -257,6 +257,52 @@ model ContactMessage {
   @@map("contact_messages")
 }
 
+model Podcast {
+  id             String   @id @default(uuid())
+  title          String
+  description    String   @db.Text
+  youtubeUrl     String?  @map("youtube_url")
+  thumbnailUrl   String?  @map("thumbnail_url")
+  duration       Int?     // in seconds
+  publishedAt    DateTime @map("published_at")
+  discordLink    String?  @map("discord_link")
+  views          Int      @default(0)
+  status         String   @default("published") // published, draft
+  createdBy      String   @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("podcasts")
+}
+
+model PodcastSubject {
+  id          String   @id @default(uuid())
+  title       String
+  description String?  @db.Text
+  submittedBy String?  @map("submitted_by") // null means submitted anonymously
+  status      String   @default("pending") // pending, approved, rejected, completed
+  votes       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  subjectVotes PodcastSubjectVote[]
+
+  @@map("podcast_subjects")
+}
+
+model PodcastSubjectVote {
+  id        String         @id @default(uuid())
+  subjectId String         @map("subject_id")
+  userId    String         @map("user_id")
+  createdAt DateTime       @default(now()) @map("created_at")
+  
+  subject   PodcastSubject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([subjectId, userId])
+  @@index([userId])
+  @@map("podcast_subject_votes")
+}
+
 enum Role {
   USER
   STAFF
