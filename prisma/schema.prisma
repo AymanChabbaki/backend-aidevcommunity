@@ -290,6 +290,17 @@ model PodcastSubject {
   @@map("podcast_subjects")
 }
 
+model FcmToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String?  @map("user_id")
+  platform  String?  // e.g., web, android, ios
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("fcm_tokens")
+}
+
 model PodcastSubjectVote {
   id        String         @id @default(uuid())
   subjectId String         @map("subject_id")
