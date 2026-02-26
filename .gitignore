@@ -5,3 +5,6 @@ dist
 .DS_Store
 
 src/lib/*.json
+
+# Ignore any other service account JSON files
+**/serviceAccount*.json
