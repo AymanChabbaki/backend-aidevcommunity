@@ -38,8 +38,37 @@ export const sendMaghribNow = asyncHandler(async (req: Request, res: Response) =
   if (!headerToken || headerToken !== envToken) return res.status(401).json({ success: false, error: 'Unauthorized' });
 
   // Lazy import to avoid cycles
-  const { sendMaghribNotification } = await import('../fcm/sendMaghrib');
+  const { sendMaghribNotification } = await import('../fcm/sendPrayer');
   const result = await sendMaghribNotification();
+  res.json({ success: true, sent: result?.sent || 0 });
+});
+
+export const sendPrayerNow = asyncHandler(async (req: Request, res: Response) => {
+  const headerToken = (req.headers['x-scheduler-token'] as string) || req.headers['x-scheduler-token'];
+  const envToken = process.env.SCHEDULER_ADMIN_TOKEN;
+  if (!envToken) return res.status(500).json({ success: false, error: 'Scheduler token not configured' });
+  if (!headerToken || headerToken !== envToken) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+  const { prayer } = req.body as { prayer?: string };
+  const p = prayer || 'Maghrib';
+  const { sendPrayerNotification } = await import('../fcm/sendPrayer');
+  const result = await sendPrayerNotification(p);
+  res.json({ success: true, prayer: p, sent: result?.sent || 0 });
+});
+
+export const sendAdkarNow = asyncHandler(async (req: Request, res: Response) => {
+  const headerToken = (req.headers['x-scheduler-token'] as string) || req.headers['x-scheduler-token'];
+  const envToken = process.env.SCHEDULER_ADMIN_TOKEN;
+  if (!envToken) return res.status(500).json({ success: false, error: 'Scheduler token not configured' });
+  if (!headerToken || headerToken !== envToken) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+  // Lazy load fetchAdkarSnippet from sendPrayer
+  const mod = await import('../fcm/sendPrayer');
+  const snippet = await (mod.fetchAdkarSnippet ? mod.fetchAdkarSnippet() : Promise.resolve(''));
+  // send as a generic notification to all tokens
+  if (!snippet) return res.status(500).json({ success: false, error: 'Failed to fetch adkar snippet' });
+  const { sendPrayerNotification } = mod;
+  const result = await sendPrayerNotification('Adkar', 'Adkar', snippet.slice(0, 240));
   res.json({ success: true, sent: result?.sent || 0 });
 });
 

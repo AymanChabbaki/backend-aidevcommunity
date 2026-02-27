@@ -5,7 +5,7 @@ import { initFirebaseAdmin } from './firebaseAdmin';
 initFirebaseAdmin();
 const admin = require('firebase-admin');
 
-async function fetchAdkarSnippet() {
+export async function fetchAdkarSnippet() {
   try {
     const r = await axios.get('https://raw.githubusercontent.com/nawafalqari/azkar-api/main/azkar.json', { timeout: 10000 });
     const data = r.data;
