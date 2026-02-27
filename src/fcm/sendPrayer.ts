@@ -92,10 +92,35 @@ export async function sendPrayerNotification(prayerName: string, title?: string,
     };
 
     try {
-      const resp = await admin.messaging().sendMulticast(message);
-      console.log(`Sent multicast for ${prayerName}:`, resp.successCount, 'success', resp.failureCount, 'failure');
-      totalSent += resp.successCount || 0;
-      if (resp.failureCount) {
+      let resp: any | undefined;
+      if (typeof admin.messaging().sendMulticast === 'function') {
+        resp = await admin.messaging().sendMulticast(message);
+        console.log(`Sent multicast for ${prayerName}:`, resp.successCount, 'success', resp.failureCount, 'failure');
+        totalSent += resp.successCount || 0;
+      } else {
+        // Fallback: send single messages when sendMulticast is unavailable
+        console.log('[FCM] sendMulticast unavailable; falling back to per-token send');
+        for (const t of chunk) {
+          try {
+            const singleMsg: any = {
+              token: t,
+              notification: message.notification,
+              android: message.android,
+              webpush: message.webpush,
+              data: message.data,
+            };
+            const r = await admin.messaging().send(singleMsg);
+            // If send returns a message id, count as success
+            if (r) totalSent += 1;
+          } catch (e) {
+            // ignore per-token errors but log for diagnostics
+            // eslint-disable-next-line no-console
+            console.error('[FCM] per-token send error', e && e.message ? e.message : e);
+          }
+        }
+      }
+
+      if (resp && resp.failureCount) {
         const invalid: string[] = [];
         resp.responses.forEach((r: any, idx: number) => {
           if (!r.success) {
