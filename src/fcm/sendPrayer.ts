@@ -50,8 +50,22 @@ export async function fetchAdkarSnippet() {
 
 export async function sendPrayerNotification(prayerName: string, title?: string, body?: string) {
   // Fetch tokens from DB
-  const tokens = await prisma.fcmToken.findMany({ select: { token: true } });
+  let tokens: { token: string }[] = [];
+  try {
+    tokens = await prisma.fcmToken.findMany({ select: { token: true } });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[FCM] Failed to fetch tokens from DB', err);
+    return { sent: 0 };
+  }
   const tokenList = tokens.map((t) => t.token);
+  // Diagnostic logs
+  // eslint-disable-next-line no-console
+  console.log('[FCM] Tokens fetched count:', tokenList.length);
+  if (tokenList.length > 0) {
+    // eslint-disable-next-line no-console
+    console.log('[FCM] Sample token:', tokenList[0].slice(0, 20) + '...');
+  }
   if (!tokenList.length) {
     console.log('No FCM tokens stored');
     return { sent: 0 };
