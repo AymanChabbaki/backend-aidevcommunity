@@ -104,7 +104,7 @@ export const sendToToken = asyncHandler(async (req: Request, res: Response) => {
       // and we can ensure `onBackgroundMessage` runs across browsers.
       data: { title: 'Test — notification', body: 'This is a test message', url: process.env.FRONTEND_URL || 'https://aidevcommunity.vercel.app' },
       webpush: {
-        notification: { icon: '/Podcast.png' },
+        notification: { icon: '/logo.png' },
         fcmOptions: { link: process.env.FRONTEND_URL || 'https://aidevcommunity.vercel.app' },
       },
     };

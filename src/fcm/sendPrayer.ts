@@ -87,7 +87,7 @@ export async function sendPrayerNotification(prayerName: string, title?: string,
         body: notificationBody,
       },
       android: { priority: 'high' },
-      webpush: { notification: { icon: '/Podcast.png' } },
+      webpush: { notification: { icon: '/logo.png' } },
       data: { prayer: prayerName },
     };
 
