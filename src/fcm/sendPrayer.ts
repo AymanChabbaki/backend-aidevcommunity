@@ -45,6 +45,45 @@ export async function fetchAdkarSnippet() {
     // eslint-disable-next-line no-console
     console.error('[Adkar] fetch error:', (e as any)?.message || String(e));
   }
+  // If the primary source failed or didn't yield a usable string, try HisnMuslim API categories
+  try {
+    const categories = [27, 28, 1, 32, 44, 74, 90];
+    for (const id of categories) {
+      try {
+        const url = `https://www.hisnmuslim.com/api/ar/${id}.json`;
+        const res = await axios.get(url, { timeout: 8000 });
+        const jd = res.data;
+
+        // Heuristic extraction: search for the first string value > 10 chars
+        const queue: any[] = [jd];
+        while (queue.length) {
+          const node = queue.shift();
+          if (!node) continue;
+          if (Array.isArray(node)) {
+            for (const item of node) queue.push(item);
+          } else if (typeof node === 'object') {
+            for (const k of Object.keys(node)) {
+              const v = node[k];
+              if (typeof v === 'string' && v.length > 10) {
+                return String(v).slice(0, 240);
+              }
+              queue.push(v);
+            }
+          } else if (typeof node === 'string' && node.length > 10) {
+            return String(node).slice(0, 240);
+          }
+        }
+      } catch (inner) {
+        // eslint-disable-next-line no-console
+        console.warn('[Adkar] hisnmuslim category fetch failed for id', id, (inner as any)?.message || String(inner));
+        continue;
+      }
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[Adkar] hisnmuslim fetch error', (err as any)?.message || String(err));
+  }
+
   return '';
 }
 
