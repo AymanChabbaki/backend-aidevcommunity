@@ -43,7 +43,7 @@ export async function fetchAdkarSnippet() {
   } catch (e: any) {
     // log for diagnostics
     // eslint-disable-next-line no-console
-    console.error('[Adkar] fetch error:', e.message || e);
+    console.error('[Adkar] fetch error:', (e as any)?.message || String(e));
   }
   return '';
 }
@@ -115,7 +115,7 @@ export async function sendPrayerNotification(prayerName: string, title?: string,
           } catch (e) {
             // ignore per-token errors but log for diagnostics
             // eslint-disable-next-line no-console
-            console.error('[FCM] per-token send error', e && e.message ? e.message : e);
+            console.error('[FCM] per-token send error', (e as any)?.message || String(e));
           }
         }
       }
