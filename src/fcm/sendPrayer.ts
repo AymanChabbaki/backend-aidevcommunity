@@ -14,7 +14,7 @@ export async function fetchAdkarSnippet() {
     if (Array.isArray(data) && data.length > 0) {
       for (const cat of data) {
         if (cat && Array.isArray(cat.azkar) && cat.azkar.length > 0 && cat.azkar[0].zekr) {
-          return String(cat.azkar[0].zekr).slice(0, 240);
+          return String(cat.azkar[0].zekr).trim();
         }
       }
     }
@@ -33,7 +33,7 @@ export async function fetchAdkarSnippet() {
             const v = node[k];
             if (typeof v === 'string' && v.length > 10) {
               // heuristics: return first sizeable string
-              return String(v).slice(0, 240);
+              return String(v).trim();
             }
             queue.push(v);
           }
@@ -70,7 +70,7 @@ export async function fetchAdkarSnippet() {
               queue.push(v);
             }
           } else if (typeof node === 'string' && node.length > 10) {
-            return String(node).slice(0, 240);
+            return String(node).trim();
           }
         }
       } catch (inner) {
@@ -111,7 +111,8 @@ export async function sendPrayerNotification(prayerName: string, title?: string,
   }
 
   const adkarSnippet = await fetchAdkarSnippet();
-  const notificationBody = body || (adkarSnippet ? `${prayerName} — ${adkarSnippet}` : `It's time for ${prayerName}`);
+  // Short notification body for push (keep reasonably short), but include full text in data.fullText
+  const notificationBody = body || (adkarSnippet ? `${prayerName} — ${adkarSnippet.slice(0, 200)}` : `It's time for ${prayerName}`);
 
   let totalSent = 0;
 
@@ -119,7 +120,7 @@ export async function sendPrayerNotification(prayerName: string, title?: string,
   const chunkSize = 500;
   for (let i = 0; i < tokenList.length; i += chunkSize) {
     const chunk = tokenList.slice(i, i + chunkSize);
-    const message: any = {
+      const message: any = {
       tokens: chunk,
       notification: {
         title: title || `${prayerName} time`,
@@ -127,7 +128,7 @@ export async function sendPrayerNotification(prayerName: string, title?: string,
       },
       android: { priority: 'high' },
       webpush: { notification: { icon: '/logo.png' } },
-      data: { prayer: prayerName },
+      data: { prayer: prayerName, fullText: adkarSnippet || '' },
     };
 
     try {
