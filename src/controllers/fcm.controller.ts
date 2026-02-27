@@ -65,10 +65,9 @@ export const sendAdkarNow = asyncHandler(async (req: Request, res: Response) => 
   // Lazy load fetchAdkarSnippet from sendPrayer
   const mod = await import('../fcm/sendPrayer');
   const snippet = await (mod.fetchAdkarSnippet ? mod.fetchAdkarSnippet() : Promise.resolve(''));
-  // send as a generic notification to all tokens
-  if (!snippet) return res.status(500).json({ success: false, error: 'Failed to fetch adkar snippet' });
   const { sendPrayerNotification } = mod;
-  const result = await sendPrayerNotification('Adkar', 'Adkar', snippet.slice(0, 240));
+  const body = snippet && snippet.length ? snippet.slice(0, 240) : 'ذكرٌ قصير للتذكير بأذكار اليوم';
+  const result = await sendPrayerNotification('Adkar', 'Adkar', body);
   res.json({ success: true, sent: result?.sent || 0 });
 });
 

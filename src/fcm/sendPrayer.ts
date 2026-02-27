@@ -9,14 +9,41 @@ export async function fetchAdkarSnippet() {
   try {
     const r = await axios.get('https://raw.githubusercontent.com/nawafalqari/azkar-api/main/azkar.json', { timeout: 10000 });
     const data = r.data;
+
+    // Strategy 1: array of categories -> first.azkar[0].zekr
     if (Array.isArray(data) && data.length > 0) {
-      const first = data[0];
-      if (first?.azkar && first.azkar[0]?.zekr) {
-        return first.azkar[0].zekr.slice(0, 120);
+      for (const cat of data) {
+        if (cat && Array.isArray(cat.azkar) && cat.azkar.length > 0 && cat.azkar[0].zekr) {
+          return String(cat.azkar[0].zekr).slice(0, 240);
+        }
       }
     }
-  } catch (e) {
-    // ignore
+
+    // Strategy 2: object with categories
+    if (data && typeof data === 'object') {
+      // Traverse values looking for a zekr string
+      const queue: any[] = [data];
+      while (queue.length) {
+        const node = queue.shift();
+        if (!node) continue;
+        if (Array.isArray(node)) {
+          for (const item of node) queue.push(item);
+        } else if (typeof node === 'object') {
+          for (const k of Object.keys(node)) {
+            const v = node[k];
+            if (typeof v === 'string' && v.length > 10) {
+              // heuristics: return first sizeable string
+              return String(v).slice(0, 240);
+            }
+            queue.push(v);
+          }
+        }
+      }
+    }
+  } catch (e: any) {
+    // log for diagnostics
+    // eslint-disable-next-line no-console
+    console.error('[Adkar] fetch error:', e.message || e);
   }
   return '';
 }
