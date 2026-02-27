@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { registerToken, listTokens, deleteToken, sendMaghribNow, debugListTokens, sendToToken } from '../controllers/fcm.controller';
+import { registerToken, listTokens, deleteToken, sendMaghribNow, debugListTokens, sendToToken, sendPrayerNow, sendAdkarNow } from '../controllers/fcm.controller';
 import { authenticate } from '../middleware/auth';
 
 const router = Router();
