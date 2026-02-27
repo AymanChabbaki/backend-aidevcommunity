@@ -74,15 +74,29 @@ export const sendToToken = asyncHandler(async (req: Request, res: Response) => {
       android: { priority: 'high' },
       // Add a data payload so the service worker's background handler receives it
       // and we can ensure `onBackgroundMessage` runs across browsers.
-      data: { title: 'Test — notification', body: 'This is a test message' },
+      data: { title: 'Test — notification', body: 'This is a test message', url: process.env.FRONTEND_URL || 'https://aidevcommunity.vercel.app' },
       webpush: {
         notification: { icon: '/Podcast.png' },
         fcmOptions: { link: process.env.FRONTEND_URL || 'https://aidevcommunity.vercel.app' },
       },
     };
+
+    // Log message payload for debugging (safe: contains only token and small message)
+    // eslint-disable-next-line no-console
+    console.log('[FCM] Sending test message to token:', token);
+    // eslint-disable-next-line no-console
+    console.log('[FCM] Message payload:', JSON.stringify(message));
+
     const resp = await admin.messaging().send(message);
+
+    // Log Firebase response
+    // eslint-disable-next-line no-console
+    console.log('[FCM] send response:', resp);
+
     res.json({ success: true, result: resp });
   } catch (err: any) {
+    // eslint-disable-next-line no-console
+    console.error('[FCM] send error:', err);
     res.status(500).json({ success: false, error: err.message || err });
   }
 });
