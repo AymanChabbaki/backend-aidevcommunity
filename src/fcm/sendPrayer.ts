@@ -5,7 +5,23 @@ import { initFirebaseAdmin } from './firebaseAdmin';
 initFirebaseAdmin();
 const admin = require('firebase-admin');
 
-export async function sendMaghribNotification() {
+async function fetchAdkarSnippet() {
+  try {
+    const r = await axios.get('https://raw.githubusercontent.com/nawafalqari/azkar-api/main/azkar.json', { timeout: 10000 });
+    const data = r.data;
+    if (Array.isArray(data) && data.length > 0) {
+      const first = data[0];
+      if (first?.azkar && first.azkar[0]?.zekr) {
+        return first.azkar[0].zekr.slice(0, 120);
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+  return '';
+}
+
+export async function sendPrayerNotification(prayerName: string, title?: string, body?: string) {
   // Fetch tokens from DB
   const tokens = await prisma.fcmToken.findMany({ select: { token: true } });
   const tokenList = tokens.map((t) => t.token);
@@ -14,22 +30,8 @@ export async function sendMaghribNotification() {
     return { sent: 0 };
   }
 
-  // Optional short adkar snippet
-  let adkarSnippet = '';
-  try {
-    const r = await axios.get('https://raw.githubusercontent.com/nawafalqari/azkar-api/main/azkar.json', { timeout: 10000 });
-    const data = r.data;
-    if (Array.isArray(data) && data.length > 0) {
-      const first = data[0];
-      if (first?.azkar && first.azkar[0]?.zekr) {
-        adkarSnippet = first.azkar[0].zekr.slice(0, 120);
-      }
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  const notificationBody = adkarSnippet ? `It's time for Iftar — ${adkarSnippet}` : "It's time for Iftar!";
+  const adkarSnippet = await fetchAdkarSnippet();
+  const notificationBody = body || (adkarSnippet ? `${prayerName} — ${adkarSnippet}` : `It's time for ${prayerName}`);
 
   let totalSent = 0;
 
@@ -40,16 +42,17 @@ export async function sendMaghribNotification() {
     const message: any = {
       tokens: chunk,
       notification: {
-        title: "Maghrib — It's Iftar time",
+        title: title || `${prayerName} time`,
         body: notificationBody,
       },
       android: { priority: 'high' },
       webpush: { notification: { icon: '/Podcast.png' } },
+      data: { prayer: prayerName },
     };
 
     try {
       const resp = await admin.messaging().sendMulticast(message);
-      console.log('Sent multicast:', resp.successCount, 'success', resp.failureCount, 'failure');
+      console.log(`Sent multicast for ${prayerName}:`, resp.successCount, 'success', resp.failureCount, 'failure');
       totalSent += resp.successCount || 0;
       if (resp.failureCount) {
         const invalid: string[] = [];
@@ -74,4 +77,9 @@ export async function sendMaghribNotification() {
   return { sent: totalSent };
 }
 
-export default sendMaghribNotification;
+export default sendPrayerNotification;
+
+// Backwards-compatible wrapper for Maghrib
+export async function sendMaghribNotification() {
+  return sendPrayerNotification('Maghrib', "Maghrib — It's Iftar time");
+}

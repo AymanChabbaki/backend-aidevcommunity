@@ -2,7 +2,7 @@ import axios from 'axios';
 import moment from 'moment-timezone';
 import prisma from '../src/lib/prisma';
 import { initFirebaseAdmin } from '../src/fcm/firebaseAdmin';
-import { sendMaghribNotification } from '../src/fcm/sendMaghrib';
+import { sendPrayerNotification } from '../src/fcm/sendPrayer';
 
 // Initialize Firebase Admin
 initFirebaseAdmin();
@@ -23,17 +23,18 @@ async function fetchTimingsForToday() {
   return res.data?.data;
 }
 
-async function scheduleMaghribForToday() {
+async function schedulePrayersForToday() {
   try {
     const data = await fetchTimingsForToday();
     const timings = data?.timings;
     const dateInfo = data?.date;
-    if (!timings || !timings.Maghrib) {
-      console.error('Maghrib not found in timings');
+    if (!timings) {
+      console.error('Timings not found in Aladhan response');
       return;
     }
 
-    const maghribStr = timings.Maghrib; // e.g., '18:47'
+    // Choose prayer names to schedule
+    const prayers = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
     const gregDate = dateInfo?.gregorian?.date; // 'DD-MM-YYYY'
     let [day, month, year] = [null, null, null];
     if (gregDate && gregDate.includes('-')) {
@@ -46,23 +47,28 @@ async function scheduleMaghribForToday() {
     }
 
     const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD
-    const [magHour, magMin] = maghribStr.split(':');
-    const magMoment = moment.tz(`${dateStr} ${magHour}:${magMin}`, 'YYYY-MM-DD HH:mm', TZ);
-
-    console.log('Scheduling Maghrib for:', magMoment.format(), 'TZ:', TZ);
-
     const now = moment.tz(TZ);
-    if (magMoment.isBefore(now)) {
-      console.log('Maghrib already passed for today. Skipping schedule.');
-      return;
-    }
 
-    const delayMs = magMoment.diff(now);
-    setTimeout(() => {
-      sendMaghribNotification().catch((e) => console.error('sendMaghribNotification error', e));
-    }, delayMs);
+    for (const p of prayers) {
+      const timeStr = timings[p];
+      if (!timeStr) {
+        console.log(`Timing not found for ${p}`);
+        continue;
+      }
+      const [hour, min] = timeStr.split(':');
+      const pMoment = moment.tz(`${dateStr} ${hour}:${min}`, 'YYYY-MM-DD HH:mm', TZ);
+      console.log(`Scheduling ${p} for:`, pMoment.format(), 'TZ:', TZ);
+      if (pMoment.isBefore(now)) {
+        console.log(`${p} already passed for today. Skipping schedule.`);
+        continue;
+      }
+      const delayMs = pMoment.diff(now);
+      setTimeout(() => {
+        sendPrayerNotification(p).catch((e) => console.error(`sendPrayerNotification ${p} error`, e));
+      }, delayMs);
+    }
   } catch (err) {
-    console.error('Failed to schedule maghrib:', err.message || err);
+    console.error('Failed to schedule prayers:', err.message || err);
   }
 }
 
@@ -70,10 +76,10 @@ async function scheduleMaghribForToday() {
 
 async function startScheduler() {
   // Run now and schedule daily interval
-  await scheduleMaghribForToday();
+  await schedulePrayersForToday();
   // Refresh schedule every 24 hours
   setInterval(() => {
-    scheduleMaghribForToday().catch((e) => console.error('scheduleMaghribForToday error', e));
+    schedulePrayersForToday().catch((e) => console.error('schedulePrayersForToday error', e));
   }, 24 * 60 * 60 * 1000);
 }
 
