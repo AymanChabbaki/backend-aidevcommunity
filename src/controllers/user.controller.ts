@@ -149,6 +149,31 @@ export const uploadProfilePhoto = asyncHandler(async (req: AuthRequest, res: Res
   });
 });
 
+export const getPublicProfile = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      displayName: true,
+      role: true,
+      staffRole: true,
+      photoUrl: true,
+      bio: true,
+      skills: true,
+      github: true,
+      linkedin: true,
+      twitter: true,
+      publicProfile: true,
+      studyLevel: true,
+      studyProgram: true,
+      createdAt: true,
+    },
+  });
+  if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+  res.json({ success: true, data: user });
+});
+
 export const changePassword = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { currentPassword, newPassword } = req.body;
 
