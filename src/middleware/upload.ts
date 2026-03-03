@@ -46,7 +46,7 @@ export const upload = multer({
 
 const postStorage = new CloudinaryStorage({
   cloudinary,
-  params: async (_req, file) => {
+  params: async (_req: any, file: Express.Multer.File) => {
     const isVideo = file.mimetype.startsWith('video/');
     return {
       folder: 'aidevcommunity/blog',
