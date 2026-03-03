@@ -65,7 +65,7 @@ export async function fetchAdkarSnippet() {
             for (const k of Object.keys(node)) {
               const v = node[k];
               if (typeof v === 'string' && v.length > 10) {
-                return String(v).slice(0, 240);
+                return String(v).trim();
               }
               queue.push(v);
             }
@@ -111,7 +111,6 @@ export async function sendPrayerNotification(prayerName: string, title?: string,
   }
 
   const adkarSnippet = await fetchAdkarSnippet();
-  // Short notification body for push (keep reasonably short), but include full text in data.fullText
   const notificationBody = body || (adkarSnippet ? `${prayerName} — ${adkarSnippet.slice(0, 200)}` : `It's time for ${prayerName}`);
 
   let totalSent = 0;
@@ -128,7 +127,7 @@ export async function sendPrayerNotification(prayerName: string, title?: string,
       },
       android: { priority: 'high' },
       webpush: { notification: { icon: '/logo.png' } },
-      data: { prayer: prayerName, fullText: adkarSnippet || '' },
+      data: { prayer: prayerName },
     };
 
     try {

@@ -301,6 +301,15 @@ model FcmToken {
   @@map("fcm_tokens")
 }
 
+model NotificationMessage {
+  id        String   @id @default(uuid())
+  fullText  String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime?
+
+  @@map("notification_messages")
+}
+
 model PodcastSubjectVote {
   id        String         @id @default(uuid())
   subjectId String         @map("subject_id")

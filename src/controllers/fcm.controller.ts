@@ -81,6 +81,16 @@ export const debugListTokens = asyncHandler(async (req: Request, res: Response) 
   res.json({ success: true, count: tokens.length, data: tokens });
 });
 
+export const getMessage = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ success: false, error: 'id is required' });
+
+  const message = await prisma.notificationMessage.findUnique({ where: { id } });
+  if (!message) return res.status(404).json({ success: false, error: 'message not found' });
+
+  res.json({ success: true, data: { id: message.id, fullText: message.fullText } });
+});
+
 export const sendToToken = asyncHandler(async (req: Request, res: Response) => {
   const headerToken = (req.headers['x-scheduler-token'] as string) || req.headers['x-scheduler-token'];
   const envToken = process.env.SCHEDULER_ADMIN_TOKEN;
