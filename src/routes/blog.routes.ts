@@ -3,7 +3,7 @@ import { authenticate } from '../middleware/auth';
 import { uploadPost } from '../middleware/upload';
 import {
   getPosts, getPost, createPost, updatePost, deletePost,
-  toggleLike, getComments, addComment, deleteComment,
+  toggleLike, getComments, addComment, deleteComment, toggleCommentLike,
 } from '../controllers/blog.controller';
 
 const router = Router();
@@ -22,5 +22,6 @@ router.post('/:id/like', authenticate, toggleLike);
 router.get('/:id/comments', getComments);
 router.post('/:id/comments', authenticate, addComment);
 router.delete('/comments/:commentId', authenticate, deleteComment);
+router.post('/comments/:commentId/like', authenticate, toggleCommentLike);
 
 export default router;

@@ -160,20 +160,46 @@ export const toggleLike = asyncHandler(async (req: AuthRequest, res: Response) =
 
 // ─── Comments ─────────────────────────────────────────────────────────────────
 
+const COMMENT_INCLUDE = (userId?: string) => ({
+  user: { select: { id: true, displayName: true, photoUrl: true } },
+  _count: { select: { likes: true, replies: true } },
+  ...(userId ? { likes: { where: { userId }, select: { id: true } } } : {}),
+});
+
 export const getComments = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const comments = await prisma.postComment.findMany({
-    where: { postId: id },
+  const userId = req.user?.id;
+
+  const comments = await (prisma.postComment as any).findMany({
+    where: { postId: id, parentId: null },
     orderBy: { createdAt: 'asc' },
-    include: { user: { select: { id: true, displayName: true, photoUrl: true } } },
+    include: {
+      ...COMMENT_INCLUDE(userId),
+      replies: {
+        orderBy: { createdAt: 'asc' },
+        include: COMMENT_INCLUDE(userId),
+      },
+    },
   });
-  res.json({ success: true, data: comments });
+
+  const shapeComment = (c: any) => ({
+    ...c,
+    likedByMe: userId ? (c.likes?.length ?? 0) > 0 : false,
+    likes: undefined,
+  });
+
+  const shaped = (comments as any[]).map((c) => ({
+    ...shapeComment(c),
+    replies: (c.replies ?? []).map(shapeComment),
+  }));
+
+  res.json({ success: true, data: shaped });
 });
 
 export const addComment = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const userId = req.user!.id;
-  const { content } = req.body;
+  const { content, parentId } = req.body;
 
   if (!content || !content.trim()) {
     return res.status(400).json({ success: false, error: 'Comment cannot be empty' });
@@ -182,12 +208,15 @@ export const addComment = asyncHandler(async (req: AuthRequest, res: Response) =
   const post = await prisma.post.findUnique({ where: { id } });
   if (!post) return res.status(404).json({ success: false, error: 'Post not found' });
 
-  const comment = await prisma.postComment.create({
-    data: { postId: id, userId, content: content.trim() },
-    include: { user: { select: { id: true, displayName: true, photoUrl: true } } },
+  const comment = await (prisma.postComment as any).create({
+    data: { postId: id, userId, content: content.trim(), parentId: parentId || null },
+    include: {
+      user: { select: { id: true, displayName: true, photoUrl: true } },
+      _count: { select: { likes: true, replies: true } },
+    },
   });
 
-  res.status(201).json({ success: true, data: comment });
+  res.status(201).json({ success: true, data: { ...comment, likedByMe: false, replies: [] } });
 });
 
 export const deleteComment = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -202,4 +231,25 @@ export const deleteComment = asyncHandler(async (req: AuthRequest, res: Response
 
   await prisma.postComment.delete({ where: { id: commentId } });
   res.json({ success: true });
+});
+
+export const toggleCommentLike = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { commentId } = req.params;
+  const userId = req.user!.id;
+
+  const db = prisma as any;
+
+  const existing = await db.postCommentLike.findUnique({
+    where: { commentId_userId: { commentId, userId } },
+  });
+
+  if (existing) {
+    await db.postCommentLike.delete({ where: { id: existing.id } });
+    const count = await db.postCommentLike.count({ where: { commentId } });
+    return res.json({ success: true, liked: false, count });
+  }
+
+  await db.postCommentLike.create({ data: { commentId, userId } });
+  const count = await db.postCommentLike.count({ where: { commentId } });
+  res.json({ success: true, liked: true, count });
 });
