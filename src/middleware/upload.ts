@@ -41,3 +41,35 @@ export const upload = multer({
   },
   fileFilter
 });
+
+// ─── Blog post upload (images + videos via Cloudinary) ───────────────────────
+
+const postStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async (_req, file) => {
+    const isVideo = file.mimetype.startsWith('video/');
+    return {
+      folder: 'aidevcommunity/blog',
+      resource_type: isVideo ? 'video' : 'image',
+      allowed_formats: isVideo
+        ? ['mp4', 'mov', 'avi', 'webm', 'mkv']
+        : ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+      ...(isVideo ? {} : { transformation: [{ width: 1200, height: 1200, crop: 'limit' }] }),
+      public_id: `${Date.now()}-${file.originalname.split('.')[0]}`,
+    };
+  },
+} as any);
+
+const postFileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowed = /jpeg|jpg|png|gif|webp|mp4|mov|avi|webm|mkv/;
+  const ext = allowed.test(path.extname(file.originalname).toLowerCase());
+  const mime = file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/');
+  if (ext && mime) cb(null, true);
+  else cb(new Error('Only images and videos are allowed'));
+};
+
+export const uploadPost = multer({
+  storage: postStorage,
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB for videos
+  fileFilter: postFileFilter,
+});

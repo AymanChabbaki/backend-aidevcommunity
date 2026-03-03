@@ -39,6 +39,9 @@ model User {
   votes           Vote[]
   quizAttempts    QuizAttempt[]
   quizAnswers     QuizAnswer[]
+  posts           Post[]
+  postLikes       PostLike[]
+  postComments    PostComment[]
 
   @@map("users")
 }
@@ -308,6 +311,53 @@ model NotificationMessage {
   expiresAt DateTime?
 
   @@map("notification_messages")
+}
+
+model Post {
+  id        String        @id @default(uuid())
+  content   String        @db.Text
+  imageUrl  String?       @map("image_url") @db.VarChar(500)
+  videoUrl  String?       @map("video_url") @db.VarChar(500)
+  authorId  String        @map("author_id")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  author    User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes     PostLike[]
+  comments  PostComment[]
+
+  @@index([authorId])
+  @@map("posts")
+}
+
+model PostLike {
+  id        String   @id @default(uuid())
+  postId    String   @map("post_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId])
+  @@map("post_likes")
+}
+
+model PostComment {
+  id        String   @id @default(uuid())
+  postId    String   @map("post_id")
+  userId    String   @map("user_id")
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([userId])
+  @@map("post_comments")
 }
 
 model PodcastSubjectVote {

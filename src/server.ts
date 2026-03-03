@@ -17,6 +17,7 @@ import messagingRoutes from './routes/messaging.routes';
 import quizRoutes from './routes/quiz.routes';
 import podcastRoutes from './routes/podcast.routes';
 import fcmRoutes from './routes/fcm.routes';
+import blogRoutes from './routes/blog.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -51,6 +52,7 @@ app.use('/api/messaging', messagingRoutes);
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/podcasts', podcastRoutes);
 app.use('/api/fcm', fcmRoutes);
+app.use('/api/blog', blogRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
