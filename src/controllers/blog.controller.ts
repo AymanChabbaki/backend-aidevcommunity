@@ -71,10 +71,14 @@ export const createPost = asyncHandler(async (req: AuthRequest, res: Response) =
     return res.status(400).json({ success: false, error: 'Content is required' });
   }
 
-  // Files uploaded via multer-cloudinary are on req.files
   const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
   const imageFile = files?.image?.[0];
   const videoFile = files?.video?.[0];
+
+  // Enforce 5 MB cap on images (global multer limit is 100 MB for videos)
+  if (imageFile && imageFile.size > 5 * 1024 * 1024) {
+    return res.status(400).json({ success: false, error: 'Image must be 5 MB or less.' });
+  }
 
   const post = await prisma.post.create({
     data: {
@@ -106,6 +110,11 @@ export const updatePost = asyncHandler(async (req: AuthRequest, res: Response) =
   const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
   const imageFile = files?.image?.[0];
   const videoFile = files?.video?.[0];
+
+  // Enforce 5 MB cap on images
+  if (imageFile && imageFile.size > 5 * 1024 * 1024) {
+    return res.status(400).json({ success: false, error: 'Image must be 5 MB or less.' });
+  }
 
   const post = await prisma.post.update({
     where: { id },
