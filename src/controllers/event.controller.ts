@@ -290,8 +290,8 @@ export const registerForEvent = asyncHandler(async (req: AuthRequest, res: Respo
   // Generate QR token
   const qrToken = uuidv4();
 
-  // Determine registration status
-  const status = event.requiresApproval ? 'PENDING' : 'REGISTERED';
+  // Always start as PENDING — staff/admin must approve
+  const status = 'PENDING';
 
   // Create registration
   const registration = await prisma.registration.create({
@@ -316,12 +316,8 @@ export const registerForEvent = asyncHandler(async (req: AuthRequest, res: Respo
   });
 
   // Create notification
-  const notificationTitle = event.requiresApproval 
-    ? 'Event Registration Pending' 
-    : 'Event Registration Confirmed';
-  const notificationContent = event.requiresApproval
-    ? `Your registration for ${event.title} is pending approval`
-    : `You have successfully registered for ${event.title}`;
+  const notificationTitle = 'Event Registration Pending';
+  const notificationContent = `Your registration for ${event.title} is pending approval by staff.`;
 
   await prisma.notification.create({
     data: {
@@ -335,9 +331,7 @@ export const registerForEvent = asyncHandler(async (req: AuthRequest, res: Respo
   res.status(201).json({
     success: true,
     data: registration,
-    message: event.requiresApproval 
-      ? 'Registration submitted for approval' 
-      : 'Registration confirmed'
+    message: 'Registration submitted — awaiting staff approval'
   });
 });
 
