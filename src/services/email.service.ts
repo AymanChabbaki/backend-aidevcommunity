@@ -191,32 +191,48 @@ export const emailTemplates = {
     <!DOCTYPE html>
     <html>
     <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #4f46e5; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
-        .content { background-color: #f9fafb; padding: 30px; border-radius: 0 0 5px 5px; }
-        .button { display: inline-block; padding: 12px 30px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-        .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px; }
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background: #f1f5f9; }
+        .wrapper { max-width: 600px; margin: 32px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .header { background: linear-gradient(135deg, #14b8a6, #0d9488); padding: 36px 32px; text-align: center; }
+        .header h1 { color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; }
+        .header p { color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 14px; }
+        .content { padding: 36px 32px; }
+        .content p { color: #475569; margin: 0 0 16px; }
+        .btn-wrap { text-align: center; margin: 32px 0; }
+        .btn { display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #14b8a6, #0d9488); color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; }
+        .warning { background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; margin: 24px 0; }
+        .warning p { color: #92400e; margin: 0; font-size: 13px; }
+        .url-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin: 16px 0; word-break: break-all; font-size: 12px; color: #64748b; }
+        .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; text-align: center; }
+        .footer p { color: #94a3b8; font-size: 12px; margin: 4px 0; }
       </style>
     </head>
     <body>
-      <div class="container">
+      <div class="wrapper">
         <div class="header">
-          <h1>Password Reset Request</h1>
+          <h1>🔐 Reset Your Password</h1>
+          <p>AI Dev Community</p>
         </div>
         <div class="content">
-          <p>Hi ${userName},</p>
-          <p>We received a request to reset your password. Click the button below to create a new password:</p>
-          <div style="text-align: center;">
-            <a href="${resetUrl}" class="button">Reset Password</a>
+          <p>Hi <strong>${userName}</strong>,</p>
+          <p>We received a request to reset the password for your account. Click the button below to choose a new password:</p>
+          <div class="btn-wrap">
+            <a href="${resetUrl}" class="btn">Reset My Password</a>
           </div>
-          <p>This link will expire in 1 hour for security reasons.</p>
-          <p>If you didn't request a password reset, please ignore this email or contact support if you have concerns.</p>
-          <p>Best regards,<br>AI Dev Community Team</p>
+          <div class="warning">
+            <p>⏰ <strong>This link expires in 1 hour.</strong> If you don't reset your password within that time, you'll need to request a new link.</p>
+          </div>
+          <p>If the button above doesn't work, copy and paste this link into your browser:</p>
+          <div class="url-box">${resetUrl}</div>
+          <p>If you didn't request a password reset, you can safely ignore this email. Your password won't change unless you click the link above.</p>
+          <p>Stay secure,<br><strong>AI Dev Community Team</strong></p>
         </div>
         <div class="footer">
-          <p>This is an automated message, please do not reply to this email.</p>
+          <p>© ${new Date().getFullYear()} AI Dev Community. All rights reserved.</p>
+          <p>This is an automated message — please do not reply to this email.</p>
         </div>
       </div>
     </body>

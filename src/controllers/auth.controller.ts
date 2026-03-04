@@ -215,42 +215,42 @@ export const logout = asyncHandler(async (req: AuthRequest, res: Response) => {
 export const forgotPassword = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { email } = req.body;
 
+  if (!email) {
+    return res.status(400).json({ success: false, error: 'Email is required' });
+  }
+
   const user = await prisma.user.findUnique({ where: { email } });
-  
+
+  if (user) {
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
+
+    // Save token BEFORE sending response (critical for serverless/Vercel)
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { resetToken, resetTokenExpiry }
+    });
+
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: '🔐 Reset Your Password – AI Dev Community',
+        html: emailTemplates.passwordReset(user.displayName, resetUrl),
+      });
+    } catch (error) {
+      console.error('Failed to send password reset email:', error);
+      // Don't leak the error to client for security, but log it
+    }
+  }
+
   // Always return success to prevent user enumeration
   res.json({
     success: true,
-    message: 'If the email exists, a password reset link has been sent'
+    message: 'If an account with that email exists, a reset link has been sent'
   });
-
-  if (!user) return;
-
-  // Generate reset token
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour from now
-
-  // Save token to database
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      resetToken,
-      resetTokenExpiry
-    }
-  });
-
-  // Send reset email
-  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
-  
-  try {
-    await sendEmail({
-      to: user.email,
-      subject: 'Password Reset Request',
-      html: emailTemplates.passwordReset(user.displayName, resetUrl),
-    });
-    console.log(`Password reset email sent to ${user.email}`);
-  } catch (error) {
-    console.error('Failed to send password reset email:', error);
-  }
 });
 
 export const resetPassword = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -297,4 +297,26 @@ export const resetPassword = asyncHandler(async (req: AuthRequest, res: Response
     success: true,
     message: 'Password reset successfully'
   });
+});
+
+export const validateResetToken = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { token } = req.query as { token?: string };
+
+  if (!token) {
+    return res.status(400).json({ success: false, error: 'Token is required' });
+  }
+
+  const user = await prisma.user.findFirst({
+    where: {
+      resetToken: token,
+      resetTokenExpiry: { gt: new Date() }
+    },
+    select: { id: true, email: true }
+  });
+
+  if (!user) {
+    return res.status(400).json({ success: false, error: 'Invalid or expired reset token' });
+  }
+
+  res.json({ success: true, message: 'Token is valid' });
 });
