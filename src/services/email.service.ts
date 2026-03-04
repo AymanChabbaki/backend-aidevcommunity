@@ -64,11 +64,12 @@ export const emailTemplates = {
       description?: string;
       imageUrl?: string;
       registrationId?: string;
-      qrCodeDataUrl?: string;
+      eventId?: string;
       frontendUrl?: string;
     }
   ) => {
     const fe = eventDetails?.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5173';
+    const eventUrl = eventDetails?.eventId ? `${fe}/events/${eventDetails.eventId}` : `${fe}/events`;
     return {
       subject: `✅ Registration Approved – ${eventTitle}`,
       html: `
@@ -93,14 +94,13 @@ export const emailTemplates = {
             .detail-icon { font-size: 16px; width: 22px; flex-shrink: 0; margin-top: 1px; }
             .detail-label { font-weight: 600; color: #4a4a6a; min-width: 90px; }
             .detail-value { color: #333; }
-            .badge-section { background: #fafafa; border: 2px dashed #c4b5fd; border-radius: 12px; padding: 24px; margin: 24px 0; text-align: center; }
-            .badge-section h3 { margin: 0 0 6px; font-size: 16px; color: #5a47d6; }
-            .badge-section p { margin: 0 0 16px; font-size: 13px; color: #666; }
-            .badge-section img.qr { width: 160px; height: 160px; border: 6px solid #fff; border-radius: 8px; box-shadow: 0 2px 12px rgba(90,71,214,0.2); }
-            .reg-id { font-family: monospace; font-size: 12px; color: #888; margin-top: 10px; word-break: break-all; }
+            .badge-cta { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #7dd3fc; border-radius: 12px; padding: 24px; margin: 24px 0; text-align: center; }
+            .badge-cta h3 { margin: 0 0 6px; font-size: 16px; color: #0369a1; }
+            .badge-cta p { margin: 0 0 16px; font-size: 13px; color: #555; }
             .comment-box { background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 20px 0; font-size: 14px; }
             .comment-box strong { color: #92400e; }
             .button { display: inline-block; padding: 13px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; margin: 8px 4px; }
+            .button-green { display: inline-block; padding: 13px 32px; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; margin: 8px 4px; }
             .button-outline { display: inline-block; padding: 11px 28px; background: transparent; color: #667eea !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; border: 2px solid #667eea; margin: 8px 4px; }
             .cta { text-align: center; margin: 24px 0 8px; }
             .footer { background: #f8f6ff; text-align: center; padding: 20px 30px; color: #888; font-size: 12px; }
@@ -159,16 +159,14 @@ export const emailTemplates = {
 
                 ${comment ? `<div class="comment-box"><strong>💬 Message from organizer:</strong><br/>${comment}</div>` : ''}
 
-                ${eventDetails?.qrCodeDataUrl ? `
-                <div class="badge-section">
-                  <h3>🪪 Your Entry Badge</h3>
-                  <p>Show this QR code at check-in – it's your entry pass.</p>
-                  <img src="${eventDetails.qrCodeDataUrl}" alt="QR Code" class="qr" />
-                  ${eventDetails.registrationId ? `<p class="reg-id">Registration ID: ${eventDetails.registrationId}</p>` : ''}
-                </div>` : ''}
+                <div class="badge-cta">
+                  <h3>🪪 Your Entry Badge is Ready</h3>
+                  <p>Visit the event page to view your QR code and download your badge PDF.</p>
+                  <a href="${eventUrl}" class="button-green">⬇️ Download My Badge</a>
+                </div>
 
                 <div class="cta">
-                  <a href="${fe}/events" class="button">View Event</a>
+                  <a href="${eventUrl}" class="button">View Event</a>
                   <a href="${fe}/dashboard" class="button-outline">My Dashboard</a>
                 </div>
 
@@ -184,7 +182,7 @@ export const emailTemplates = {
         </body>
         </html>
       `,
-      text: `Hi ${userName},\n\nYour registration for ${eventTitle} has been approved!\n\nEvent Details:\n- Event: ${eventTitle}\n- Start: ${eventDate}${eventDetails?.endDate ? '\n- End: ' + eventDetails.endDate : ''}${eventDetails?.location ? '\n- Location: ' + eventDetails.location : ''}${eventDetails?.category ? '\n- Category: ' + eventDetails.category : ''}${comment ? '\n\nMessage from organizer: ' + comment : ''}\n\nPlease visit ${fe}/events to view the full event details and download your badge.\n\nBest regards,\nAI Dev Community Team`
+      text: `Hi ${userName},\n\nYour registration for ${eventTitle} has been approved!\n\nEvent Details:\n- Event: ${eventTitle}\n- Start: ${eventDate}${eventDetails?.endDate ? '\n- End: ' + eventDetails.endDate : ''}${eventDetails?.location ? '\n- Location: ' + eventDetails.location : ''}${eventDetails?.category ? '\n- Category: ' + eventDetails.category : ''}${comment ? '\n\nMessage from organizer: ' + comment : ''}\n\nDownload your badge here: ${eventUrl}\n\nBest regards,\nAI Dev Community Team`
     };
   },
 
