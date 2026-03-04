@@ -672,7 +672,7 @@ export const approveRegistration = asyncHandler(async (req: AuthRequest, res: Re
 
   // Send approval email with full event details + direct badge download link
   const backendUrl = process.env.BACKEND_URL || process.env.FRONTEND_URL?.replace(':5173', ':3000') || 'http://localhost:3000';
-  const badgeDownloadUrl = `${backendUrl}/events/registrations/${registration.id}/badge?token=${registration.qrToken}`;
+  const badgeDownloadUrl = `${backendUrl}/api/events/registrations/${registration.id}/badge?token=${registration.qrToken}`;
 
   const emailTemplate = emailTemplates.registrationApproved(
     registration.user.displayName,
