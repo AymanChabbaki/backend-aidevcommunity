@@ -384,6 +384,49 @@ export const checkIn = asyncHandler(async (req: AuthRequest, res: Response) => {
   });
 });
 
+export const checkInByToken = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { token } = req.body;
+
+  if (!token) {
+    return res.status(400).json({ success: false, error: 'Missing token' });
+  }
+
+  const registration = await prisma.registration.findFirst({
+    where: { qrToken: token },
+    include: {
+      user: { select: { displayName: true, email: true, photoUrl: true } },
+      event: { select: { title: true } }
+    }
+  });
+
+  if (!registration) {
+    return res.status(404).json({ success: false, error: 'Invalid QR code – registration not found' });
+  }
+
+  if (!['APPROVED', 'REGISTERED'].includes(registration.status)) {
+    return res.status(403).json({ success: false, error: 'Registration is not approved' });
+  }
+
+  if (registration.checkedInAt) {
+    return res.status(400).json({
+      success: false,
+      error: 'Already checked in',
+      data: { checkedInAt: registration.checkedInAt, name: registration.user.displayName }
+    });
+  }
+
+  await prisma.registration.update({
+    where: { id: registration.id },
+    data: { checkedInAt: new Date() }
+  });
+
+  res.json({
+    success: true,
+    message: `${registration.user.displayName} checked in successfully`,
+    data: { name: registration.user.displayName, eventTitle: registration.event.title }
+  });
+});
+
 export const getEventRegistrations = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
 
@@ -879,8 +922,8 @@ export const downloadBadge = asyncHandler(async (req: AuthRequest, res: Response
     return res.status(403).json({ success: false, error: 'Badge only available for approved registrations' });
   }
 
-  // Generate QR code as PNG buffer
-  const qrBuffer = await QRCode.toBuffer(registration.id, { width: 180, margin: 1 });
+  // Generate QR code as PNG buffer — encode qrToken so scanner can check in
+  const qrBuffer = await QRCode.toBuffer(registration.qrToken, { width: 180, margin: 1 });
 
   // Build PDF
   const doc = new PDFDocument({ size: 'A4', margin: 0 });

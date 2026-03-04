@@ -7,6 +7,7 @@ import {
   deleteEvent,
   registerForEvent,
   checkIn,
+  checkInByToken,
   getEventRegistrations,
   exportRegistrations,
   getMyRegistrations,
@@ -38,6 +39,7 @@ router.post('/upload-image', authenticate, authorize('STAFF', 'ADMIN'), upload.s
   }
 });
 router.get('/registrations/pending', authenticate, authorize('STAFF', 'ADMIN'), getPendingRegistrations);
+router.post('/registrations/check-in', authenticate, authorize('STAFF', 'ADMIN'), checkInByToken);
 router.get('/registrations/:id/badge', downloadBadge);
 router.put('/registrations/:id/approve', authenticate, authorize('STAFF', 'ADMIN'), approveRegistration);
 router.put('/registrations/:id/reject', authenticate, authorize('STAFF', 'ADMIN'), rejectRegistration);
