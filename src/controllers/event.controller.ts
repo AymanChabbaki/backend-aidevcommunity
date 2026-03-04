@@ -391,8 +391,14 @@ export const checkInByToken = asyncHandler(async (req: AuthRequest, res: Respons
     return res.status(400).json({ success: false, error: 'Missing token' });
   }
 
+  // Support both old badges (QR encodes registration.id) and new badges (QR encodes qrToken)
   const registration = await prisma.registration.findFirst({
-    where: { qrToken: token },
+    where: {
+      OR: [
+        { qrToken: token },
+        { id: token }
+      ]
+    },
     include: {
       user: { select: { displayName: true, email: true, photoUrl: true } },
       event: { select: { title: true } }
@@ -400,7 +406,7 @@ export const checkInByToken = asyncHandler(async (req: AuthRequest, res: Respons
   });
 
   if (!registration) {
-    return res.status(404).json({ success: false, error: 'Invalid QR code – registration not found' });
+    return res.status(404).json({ success: false, error: 'Invalid QR code — registration not found' });
   }
 
   if (!['APPROVED', 'REGISTERED'].includes(registration.status)) {
