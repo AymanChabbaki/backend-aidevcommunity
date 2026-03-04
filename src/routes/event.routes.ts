@@ -12,7 +12,8 @@ import {
   getMyRegistrations,
   getPendingRegistrations,
   approveRegistration,
-  rejectRegistration
+  rejectRegistration,
+  deleteRegistration
 } from '../controllers/event.controller';
 import { authenticate, authorize } from '../middleware/auth';
 import { upload } from '../middleware/upload';
@@ -38,6 +39,7 @@ router.post('/upload-image', authenticate, authorize('STAFF', 'ADMIN'), upload.s
 router.get('/registrations/pending', authenticate, authorize('STAFF', 'ADMIN'), getPendingRegistrations);
 router.put('/registrations/:id/approve', authenticate, authorize('STAFF', 'ADMIN'), approveRegistration);
 router.put('/registrations/:id/reject', authenticate, authorize('STAFF', 'ADMIN'), rejectRegistration);
+router.delete('/registrations/:id', authenticate, authorize('STAFF', 'ADMIN'), deleteRegistration);
 
 // Parameterized routes - must come after specific routes
 router.get('/:id', getEventById);

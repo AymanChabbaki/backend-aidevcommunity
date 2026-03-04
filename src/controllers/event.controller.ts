@@ -779,3 +779,48 @@ export const rejectRegistration = asyncHandler(async (req: AuthRequest, res: Res
     message: 'Registration rejected'
   });
 });
+
+export const deleteRegistration = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+
+  const registration = await prisma.registration.findUnique({
+    where: { id },
+    include: {
+      event: true,
+      user: { select: { id: true, displayName: true, email: true } }
+    }
+  });
+
+  if (!registration) {
+    return res.status(404).json({ success: false, error: 'Registration not found' });
+  }
+
+  await prisma.registration.delete({ where: { id } });
+
+  // Notify the user
+  await prisma.notification.create({
+    data: {
+      userId: registration.user.id,
+      type: 'EVENT_UPDATE',
+      title: 'Registration Removed',
+      content: `Your registration for ${registration.event.title} has been removed by staff.`
+    }
+  });
+
+  // Audit log
+  await prisma.auditLog.create({
+    data: {
+      actorId: req.user!.id,
+      action: 'DELETE_REGISTRATION',
+      entity: 'REGISTRATION',
+      entityId: id,
+      metadata: {
+        eventId: registration.eventId,
+        userId: registration.userId,
+        eventTitle: registration.event.title
+      }
+    }
+  });
+
+  res.json({ success: true, message: 'Registration deleted' });
+});
