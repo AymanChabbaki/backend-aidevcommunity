@@ -13,7 +13,8 @@ import {
   getPendingRegistrations,
   approveRegistration,
   rejectRegistration,
-  deleteRegistration
+  deleteRegistration,
+  downloadBadge
 } from '../controllers/event.controller';
 import { authenticate, authorize } from '../middleware/auth';
 import { upload } from '../middleware/upload';
@@ -37,6 +38,7 @@ router.post('/upload-image', authenticate, authorize('STAFF', 'ADMIN'), upload.s
   }
 });
 router.get('/registrations/pending', authenticate, authorize('STAFF', 'ADMIN'), getPendingRegistrations);
+router.get('/registrations/:id/badge', downloadBadge);
 router.put('/registrations/:id/approve', authenticate, authorize('STAFF', 'ADMIN'), approveRegistration);
 router.put('/registrations/:id/reject', authenticate, authorize('STAFF', 'ADMIN'), rejectRegistration);
 router.delete('/registrations/:id', authenticate, authorize('STAFF', 'ADMIN'), deleteRegistration);

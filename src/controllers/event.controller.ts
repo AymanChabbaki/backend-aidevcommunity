@@ -3,6 +3,7 @@ import { asyncHandler } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
 import { RegistrationStatus } from '@prisma/client';
 import QRCode from 'qrcode';
+import PDFDocument from 'pdfkit';
 import { v4 as uuidv4 } from 'uuid';
 import { sendEmail, emailTemplates } from '../services/email.service';
 import { format } from 'date-fns';
@@ -669,7 +670,10 @@ export const approveRegistration = asyncHandler(async (req: AuthRequest, res: Re
     }
   });
 
-  // Send approval email with full event details + badge download link
+  // Send approval email with full event details + direct badge download link
+  const backendUrl = process.env.BACKEND_URL || process.env.FRONTEND_URL?.replace(':5173', ':3000') || 'http://localhost:3000';
+  const badgeDownloadUrl = `${backendUrl}/events/registrations/${registration.id}/badge?token=${registration.qrToken}`;
+
   const emailTemplate = emailTemplates.registrationApproved(
     registration.user.displayName,
     registration.event.title,
@@ -684,6 +688,7 @@ export const approveRegistration = asyncHandler(async (req: AuthRequest, res: Re
       imageUrl: (registration.event as any).imageUrl || undefined,
       registrationId: registration.id,
       eventId: registration.eventId,
+      badgeDownloadUrl,
       frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
     }
   );
@@ -848,4 +853,116 @@ export const deleteRegistration = asyncHandler(async (req: AuthRequest, res: Res
   });
 
   res.json({ success: true, message: 'Registration deleted' });
+});
+
+export const downloadBadge = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const { token } = req.query as { token?: string };
+
+  if (!token) {
+    return res.status(400).json({ success: false, error: 'Missing token' });
+  }
+
+  const registration = await prisma.registration.findUnique({
+    where: { id },
+    include: {
+      event: true,
+      user: { select: { id: true, displayName: true, email: true } }
+    }
+  });
+
+  if (!registration || registration.qrToken !== token) {
+    return res.status(404).json({ success: false, error: 'Badge not found or invalid token' });
+  }
+
+  if (!['APPROVED', 'REGISTERED'].includes(registration.status)) {
+    return res.status(403).json({ success: false, error: 'Badge only available for approved registrations' });
+  }
+
+  // Generate QR code as PNG buffer
+  const qrBuffer = await QRCode.toBuffer(registration.id, { width: 180, margin: 1 });
+
+  // Build PDF
+  const doc = new PDFDocument({ size: 'A4', margin: 0 });
+  const chunks: Buffer[] = [];
+  doc.on('data', (c: Buffer) => chunks.push(c));
+
+  await new Promise<void>((resolve) => {
+    doc.on('end', resolve);
+
+    const pageW = 595.28;
+    const pageH = 841.89;
+
+    // Header background
+    doc.rect(0, 0, pageW, 140).fill('#14b8a6');
+
+    // Header text
+    doc.fillColor('#ffffff').fontSize(28).font('Helvetica-Bold')
+      .text('AI Dev Community', 0, 38, { align: 'center', width: pageW });
+    doc.fontSize(13).font('Helvetica')
+      .text('Event Registration Badge', 0, 75, { align: 'center', width: pageW });
+
+    // White card area
+    const cardX = 50, cardY = 155, cardW = pageW - 100, cardH = 340;
+    doc.roundedRect(cardX, cardY, cardW, cardH, 8).stroke('#14b8a6');
+
+    // Event title
+    const ev = registration.event as any;
+    const title = ev.title || 'Event';
+    doc.fillColor('#1e293b').fontSize(20).font('Helvetica-Bold')
+      .text(title, cardX + 20, cardY + 20, { width: cardW - 40, align: 'center' });
+
+    let y = cardY + 70;
+
+    // Attendee
+    doc.fillColor('#475569').fontSize(12).font('Helvetica').text('Attendee:', cardX + 20, y);
+    doc.fillColor('#14b8a6').fontSize(14).font('Helvetica-Bold')
+      .text(registration.user.displayName || registration.user.email, cardX + 20, y + 16);
+    y += 48;
+
+    // Date
+    doc.fillColor('#475569').fontSize(12).font('Helvetica').text('Date:', cardX + 20, y);
+    doc.fillColor('#1e293b').fontSize(12).font('Helvetica')
+      .text(format(new Date(ev.startAt), 'PPP p'), cardX + 20, y + 16);
+    y += 44;
+
+    // Location
+    doc.fillColor('#475569').fontSize(12).font('Helvetica').text('Location:', cardX + 20, y);
+    doc.fillColor('#1e293b').fontSize(12).font('Helvetica')
+      .text(ev.locationText || ev.location || 'TBA', cardX + 20, y + 16, { width: cardW - 40 });
+    y += 48;
+
+    // Registration ID
+    doc.fillColor('#94a3b8').fontSize(9).font('Helvetica')
+      .text(`Registration ID: ${registration.id}`, cardX + 20, y, { width: cardW - 40 });
+
+    // QR code
+    const qrSize = 120;
+    const qrX = (pageW - qrSize) / 2;
+    const qrY = cardY + cardH + 20;
+    doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
+    doc.fillColor('#475569').fontSize(9).font('Helvetica')
+      .text('Scan for verification', 0, qrY + qrSize + 6, { align: 'center', width: pageW });
+
+    // Footer
+    const footerY = pageH - 70;
+    doc.rect(0, footerY, pageW, 70).fill('#f8fafc');
+    doc.moveTo(0, footerY).lineTo(pageW, footerY).stroke('#14b8a6');
+    doc.fillColor('#475569').fontSize(9).font('Helvetica-Bold')
+      .text('Contact Us:', 0, footerY + 10, { align: 'center', width: pageW });
+    doc.font('Helvetica').fontSize(8)
+      .text('Email: contactaidevcommunity@gmail.com', 0, footerY + 24, { align: 'center', width: pageW })
+      .text('Phone: +212 687830201', 0, footerY + 36, { align: 'center', width: pageW })
+      .text("Location: Faculty of Science Ben M'sik, Casablanca, Morocco", 0, footerY + 48, { align: 'center', width: pageW });
+
+    doc.end();
+  });
+
+  const pdfBuffer = Buffer.concat(chunks);
+  const safeName = registration.event.title.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="badge-${safeName}.pdf"`);
+  res.setHeader('Content-Length', pdfBuffer.length);
+  res.send(pdfBuffer);
 });

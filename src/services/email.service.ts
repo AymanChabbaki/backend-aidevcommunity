@@ -65,6 +65,7 @@ export const emailTemplates = {
       imageUrl?: string;
       registrationId?: string;
       eventId?: string;
+      badgeDownloadUrl?: string;
       frontendUrl?: string;
     }
   ) => {
@@ -161,8 +162,8 @@ export const emailTemplates = {
 
                 <div class="badge-cta">
                   <h3>🪪 Your Entry Badge is Ready</h3>
-                  <p>Visit the event page to view your QR code and download your badge PDF.</p>
-                  <a href="${eventUrl}" class="button-green">⬇️ Download My Badge</a>
+                  <p>Click the button below to instantly download your badge PDF — no login required.</p>
+                  <a href="${eventDetails?.badgeDownloadUrl || eventUrl}" class="button-green">⬇️ Download My Badge (PDF)</a>
                 </div>
 
                 <div class="cta">
@@ -182,7 +183,7 @@ export const emailTemplates = {
         </body>
         </html>
       `,
-      text: `Hi ${userName},\n\nYour registration for ${eventTitle} has been approved!\n\nEvent Details:\n- Event: ${eventTitle}\n- Start: ${eventDate}${eventDetails?.endDate ? '\n- End: ' + eventDetails.endDate : ''}${eventDetails?.location ? '\n- Location: ' + eventDetails.location : ''}${eventDetails?.category ? '\n- Category: ' + eventDetails.category : ''}${comment ? '\n\nMessage from organizer: ' + comment : ''}\n\nDownload your badge here: ${eventUrl}\n\nBest regards,\nAI Dev Community Team`
+      text: `Hi ${userName},\n\nYour registration for ${eventTitle} has been approved!\n\nEvent Details:\n- Event: ${eventTitle}\n- Start: ${eventDate}${eventDetails?.endDate ? '\n- End: ' + eventDetails.endDate : ''}${eventDetails?.location ? '\n- Location: ' + eventDetails.location : ''}${eventDetails?.category ? '\n- Category: ' + eventDetails.category : ''}${comment ? '\n\nMessage from organizer: ' + comment : ''}\n\nDownload your badge PDF directly: ${eventDetails?.badgeDownloadUrl || eventUrl}\n\nBest regards,\nAI Dev Community Team`
     };
   },
 
