@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
+import { RegistrationStatus } from '@prisma/client';
 import QRCode from 'qrcode';
 import { v4 as uuidv4 } from 'uuid';
 import { sendEmail, emailTemplates } from '../services/email.service';
@@ -568,10 +569,17 @@ export const getMyRegistrations = asyncHandler(async (req: AuthRequest, res: Res
 });
 
 export const getPendingRegistrations = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { status } = req.query;
-  const whereClause = status === 'ALL'
-    ? {}
-    : { status: (status as string) || 'PENDING' };
+  const { status, organizerId } = req.query;
+
+  const whereClause: any = {};
+
+  if (status !== 'ALL') {
+    whereClause.status = ((status as string) || 'PENDING') as RegistrationStatus;
+  }
+
+  if (organizerId) {
+    whereClause.event = { organizerId: organizerId as string };
+  }
 
   const registrations = await prisma.registration.findMany({
     where: whereClause,
