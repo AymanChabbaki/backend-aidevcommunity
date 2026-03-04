@@ -568,8 +568,13 @@ export const getMyRegistrations = asyncHandler(async (req: AuthRequest, res: Res
 });
 
 export const getPendingRegistrations = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { status } = req.query;
+  const whereClause = status === 'ALL'
+    ? {}
+    : { status: (status as string) || 'PENDING' };
+
   const registrations = await prisma.registration.findMany({
-    where: { status: 'PENDING' },
+    where: whereClause,
     include: {
       event: {
         select: {
@@ -578,7 +583,8 @@ export const getPendingRegistrations = asyncHandler(async (req: AuthRequest, res
           startAt: true,
           requiresApproval: true,
           eligibleLevels: true,
-          eligiblePrograms: true
+          eligiblePrograms: true,
+          organizerId: true
         }
       },
       user: {
