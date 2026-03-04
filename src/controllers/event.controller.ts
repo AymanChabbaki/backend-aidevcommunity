@@ -669,12 +669,31 @@ export const approveRegistration = asyncHandler(async (req: AuthRequest, res: Re
     }
   });
 
-  // Send approval email
+  // Generate QR code for badge
+  let qrCodeDataUrl: string | undefined;
+  try {
+    qrCodeDataUrl = await QRCode.toDataURL(registration.id, { width: 200, margin: 1 });
+  } catch (e) {
+    console.error('QR generation failed:', e);
+  }
+
+  // Send approval email with full event details + badge QR
   const emailTemplate = emailTemplates.registrationApproved(
     registration.user.displayName,
     registration.event.title,
-    format(new Date(registration.event.startAt), 'PPP'),
-    comment
+    format(new Date(registration.event.startAt), 'PPPp'),
+    comment,
+    {
+      endDate: format(new Date(registration.event.endAt), 'PPPp'),
+      location: (registration.event as any).locationText || undefined,
+      locationType: (registration.event as any).locationType || 'PHYSICAL',
+      category: (registration.event as any).category || undefined,
+      description: registration.event.description || undefined,
+      imageUrl: (registration.event as any).imageUrl || undefined,
+      registrationId: registration.id,
+      qrCodeDataUrl,
+      frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+    }
   );
   await sendEmail({
     to: registration.user.email,
