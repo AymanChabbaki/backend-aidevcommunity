@@ -16,6 +16,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@google/genai": "^1.44.0",
     "@prisma/client": "^5.20.0",
     "@types/nodemailer": "^7.0.4",
     "@types/pdfkit": "^0.17.5",
