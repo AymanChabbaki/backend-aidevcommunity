@@ -11,13 +11,18 @@ cloudinary.config({
 });
 
 // ─── Gemini client factory ───────────────────────────────────────────────────
-const getAI = (): GoogleGenAI => {
-  const key =
-    process.env.GEMINI_API_KEY ||
-    process.env.VITE_GEMINI_API_KEY; // support both names
+const getApiKey = (): string => {
+  const key = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
   if (!key) throw new Error('GEMINI_API_KEY is not configured in the environment.');
-  return new GoogleGenAI({ apiKey: key });
+  return key;
 };
+
+// Standard client (v1beta) — used for text models
+const getAI = (): GoogleGenAI => new GoogleGenAI({ apiKey: getApiKey() });
+
+// v1alpha client — required for gemini-2.0-flash-preview-image-generation
+const getImageAI = (): GoogleGenAI =>
+  new GoogleGenAI({ apiKey: getApiKey(), httpOptions: { apiVersion: 'v1alpha' } });
 
 // ─── POST /api/womensday/generate ────────────────────────────────────────────
 //  Body: { name, interests, dream, photoBase64?, photoMimeType? }
@@ -36,8 +41,6 @@ export const generate = async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ error: 'name, interests and dream are required.' });
       return;
     }
-
-    const ai = getAI();
 
     // ── Build image-generation prompt ──────────────────────────────────────
     const imagePromptText =
@@ -62,13 +65,13 @@ export const generate = async (req: Request, res: Response): Promise<void> => {
 
     // ── Run both in parallel ──────────────────────────────────────────────
     const [imageResult, complimentResult] = await Promise.all([
-      ai.models.generateContent({
+      getImageAI().models.generateContent({
         model: 'gemini-2.0-flash-preview-image-generation',
         contents: [{ role: 'user', parts: imageParts }] as never,
         config: { responseModalities: ['TEXT', 'IMAGE'] },
       }),
-      ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+      getAI().models.generateContent({
+        model: 'gemini-2.0-flash',
         contents: complimentPrompt,
       }),
     ]);
