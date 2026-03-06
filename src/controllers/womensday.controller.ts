@@ -17,19 +17,14 @@ const getApiKey = (): string => {
   return key;
 };
 
-// Standard client (v1beta) — used for text models
 const getAI = (): GoogleGenAI => new GoogleGenAI({ apiKey: getApiKey() });
-
-// v1alpha client — required for gemini-2.0-flash-preview-image-generation
-const getImageAI = (): GoogleGenAI =>
-  new GoogleGenAI({ apiKey: getApiKey(), httpOptions: { apiVersion: 'v1alpha' } });
 
 // ─── POST /api/womensday/generate ────────────────────────────────────────────
 //  Body: { name, interests, dream, photoBase64?, photoMimeType? }
 //  Returns: { imageDataUrl, compliment }
 export const generate = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, interests, dream, photoBase64, photoMimeType } = req.body as {
+    const { name, interests, dream } = req.body as {
       name?: string;
       interests?: string;
       dream?: string;
@@ -42,19 +37,14 @@ export const generate = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // ── Build image-generation prompt ──────────────────────────────────────
-    const imagePromptText =
-      `Create a colorful caricature style illustration of a woman named ${name.trim()} in the year 2030. ` +
-      `She loves ${interests.trim()} and dreams of becoming a ${dream.trim()}. ` +
-      `Show her in a futuristic tech environment with elements like holographic screens, AI interfaces, robots, ` +
-      `coding dashboards or digital innovation tools. ` +
-      `Style: fun caricature, modern digital illustration, vibrant colors, inspiring atmosphere, empowering women in technology.` +
-      (photoBase64 ? ' The provided photo shows the participant — use it as inspiration for the face and appearance.' : '');
+    const ai = getAI();
 
-    const imageParts: Array<Record<string, unknown>> = [{ text: imagePromptText }];
-    if (photoBase64 && photoMimeType) {
-      imageParts.push({ inlineData: { mimeType: photoMimeType, data: photoBase64 } });
-    }
+    // ── Build image-generation prompt (Imagen 3) ───────────────────────────
+    const imagePromptText =
+      `Colorful caricature illustration of a Moroccan woman named ${name.trim()} in the year 2030. ` +
+      `She is passionate about ${interests.trim()} and is a ${dream.trim()}. ` +
+      `Futuristic tech environment: holographic screens, AI interfaces, robots, coding dashboards. ` +
+      `Style: fun caricature, modern digital illustration, vibrant colors, inspiring, empowering women in technology.`;
 
     // ── Build compliment prompt ───────────────────────────────────────────
     const complimentPrompt =
@@ -65,38 +55,33 @@ export const generate = async (req: Request, res: Response): Promise<void> => {
 
     // ── Run both in parallel ──────────────────────────────────────────────
     const [imageResult, complimentResult] = await Promise.all([
-      getImageAI().models.generateContent({
-        model: 'gemini-2.0-flash-preview-image-generation',
-        contents: [{ role: 'user', parts: imageParts }] as never,
-        config: { responseModalities: ['TEXT', 'IMAGE'] },
+      ai.models.generateImages({
+        model: 'imagen-3.0-generate-002',
+        prompt: imagePromptText,
+        config: {
+          numberOfImages: 1,
+          outputMimeType: 'image/jpeg',
+          aspectRatio: '1:1',
+        },
       }),
-      getAI().models.generateContent({
+      ai.models.generateContent({
         model: 'gemini-2.0-flash',
         contents: complimentPrompt,
       }),
     ]);
 
     // ── Extract image ─────────────────────────────────────────────────────
-    let imageDataUrl: string | null = null;
-    const candidate = imageResult.candidates?.[0];
-    if (candidate?.content?.parts) {
-      for (const part of candidate.content.parts as Array<Record<string, unknown>>) {
-        const id = part['inlineData'] as { data: string; mimeType: string } | undefined;
-        if (id?.data) {
-          imageDataUrl = `data:${id.mimeType ?? 'image/png'};base64,${id.data}`;
-          break;
-        }
-      }
-    }
-    if (!imageDataUrl) {
-      res.status(502).json({ error: 'Gemini did not return an image. Please try again.' });
+    const imageBytes = imageResult.generatedImages?.[0]?.image?.imageBytes;
+    if (!imageBytes) {
+      res.status(502).json({ error: 'AI did not return an image. Please try again.' });
       return;
     }
+    const imageDataUrl = `data:image/jpeg;base64,${imageBytes}`;
 
     // ── Extract compliment ─────────────────────────────────────────────────
     const compliment = (complimentResult as unknown as { text: string }).text?.trim();
     if (!compliment) {
-      res.status(502).json({ error: 'Gemini did not return a compliment. Please try again.' });
+      res.status(502).json({ error: 'AI did not return a compliment. Please try again.' });
       return;
     }
 
