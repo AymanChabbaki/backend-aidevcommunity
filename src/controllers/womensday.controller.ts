@@ -24,7 +24,7 @@ const getAI = (): GoogleGenAI => new GoogleGenAI({ apiKey: getApiKey() });
 //  Returns: { imageDataUrl, compliment }
 export const generate = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, interests, dream } = req.body as {
+    const { name, interests, dream, photoBase64, photoMimeType } = req.body as {
       name?: string;
       interests?: string;
       dream?: string;
@@ -39,25 +39,52 @@ export const generate = async (req: Request, res: Response): Promise<void> => {
 
     const ai = getAI();
 
-    // ── Build image-generation prompt (Imagen 3) ───────────────────────────
+    const n = name.trim();
+    const i = interests.trim();
+    const d = dream.trim();
+    const hasPhoto = !!(photoBase64 && photoMimeType);
+
+    // ── Build image-generation prompt ──────────────────────────────────────
     const imagePromptText =
-      `Colorful caricature illustration of a Moroccan woman named ${name.trim()} in the year 2030. ` +
-      `She is passionate about ${interests.trim()} and is a ${dream.trim()}. ` +
-      `Futuristic tech environment: holographic screens, AI interfaces, robots, coding dashboards. ` +
-      `Style: fun caricature, modern digital illustration, vibrant colors, inspiring, empowering women in technology.`;
+      // Who she is
+      `Draw a funny, exaggerated caricature illustration of a Moroccan woman named "${n}" ` +
+      `who is a proud member of AI Dev Community — a Moroccan tech community for women in AI. ` +
+      // What makes her unique
+      `She is obsessed with ${i} and in 2030 she has become an unstoppable ${d}. ` +
+      // Funny exaggeration based on interests
+      `Exaggerate her personality traits based on her interests (${i}) in a funny, affectionate way — ` +
+      `for example oversized gear, a tiny robot sidekick, holographic keyboard floating around her, ` +
+      `coffee cup with AI logo, stacks of tech books, etc. ` +
+      // Environment
+      `Setting: futuristic Moroccan tech hub in 2030, holographic screens showing code and AI dashboards, ` +
+      `neon lights mixing Moroccan zellige patterns with sci-fi aesthetics, ` +
+      `a banner or badge visible in the scene that reads "AI Dev Community" and "Women's Day 2026". ` +
+      // Her appearance
+      (hasPhoto
+        ? `IMPORTANT: Use the provided reference photo to accurately replicate her face, skin tone, hair style and color, and facial features. Keep her recognizable. `
+        : `She looks like a confident Moroccan woman, modern style. `) +
+      // Style direction
+      `Art style: vibrant Pixar/cartoon caricature, warm colors, fun and empowering mood, high detail, digital illustration.`;
+
+    // Build parts array — text first, then optional face reference photo
+    const imageParts: Array<Record<string, unknown>> = [{ text: imagePromptText }];
+    if (hasPhoto) {
+      imageParts.push({ inlineData: { mimeType: photoMimeType, data: photoBase64 } });
+    }
 
     // ── Build compliment prompt ───────────────────────────────────────────
     const complimentPrompt =
-      `اكتب كلاما دافئا ومحفزا باللهجة المغربية الدارجة لامرأة اسمها ${name.trim()}. ` +
-      `هي مهتمة بـ ${interests.trim()} وتحلم بأن تصبح ${dream.trim()}. ` +
-      `الأسلوب يجب يكون ودود ومحفز وإيجابي. ` +
+      `اكتب كلاما دافئا ومضحكا وممتعا باللهجة المغربية الدارجة لامرأة اسمها ${n}، ` +
+      `عضوة في مجتمع AI Dev Community ديال النساء في التكنولوجيا بالمغرب. ` +
+      `هي مهتمة بـ ${i} وتحلم بأن تصبح ${d}. ` +
+      `دخل شي مزحة خفيفة على اهتماماتها (${i}) بأسلوب لطيف ومحب. ` +
       `الطول: 2 إلى 3 جمل. اكتب فقط الكلام من غير أي شرح أو مقدمة.`;
 
     // ── Run both in parallel ──────────────────────────────────────────────
     const [imageResult, complimentResult] = await Promise.all([
       ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
-        contents: [{ role: 'user', parts: [{ text: imagePromptText }] }] as never,
+        contents: [{ role: 'user', parts: imageParts }] as never,
         config: { responseModalities: ['TEXT', 'IMAGE'] },
       }),
       ai.models.generateContent({
