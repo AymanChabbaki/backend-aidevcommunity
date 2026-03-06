@@ -56,12 +56,12 @@ export const generate = async (req: Request, res: Response): Promise<void> => {
     // ── Run both in parallel ──────────────────────────────────────────────
     const [imageResult, complimentResult] = await Promise.all([
       ai.models.generateContent({
-        model: 'gemini-2.0-flash-exp-image-generation',
+        model: 'gemini-2.5-flash-image',
         contents: [{ role: 'user', parts: [{ text: imagePromptText }] }] as never,
         config: { responseModalities: ['TEXT', 'IMAGE'] },
       }),
       ai.models.generateContent({
-        model: 'gemini-2.0-flash-lite',
+        model: 'gemini-2.5-flash',
         contents: complimentPrompt,
       }),
     ]);
