@@ -55,28 +55,33 @@ export const generate = async (req: Request, res: Response): Promise<void> => {
 
     // ── Run both in parallel ──────────────────────────────────────────────
     const [imageResult, complimentResult] = await Promise.all([
-      ai.models.generateImages({
-        model: 'imagen-3.0-generate-002',
-        prompt: imagePromptText,
-        config: {
-          numberOfImages: 1,
-          outputMimeType: 'image/jpeg',
-          aspectRatio: '1:1',
-        },
+      ai.models.generateContent({
+        model: 'gemini-2.0-flash-exp-image-generation',
+        contents: [{ role: 'user', parts: [{ text: imagePromptText }] }] as never,
+        config: { responseModalities: ['TEXT', 'IMAGE'] },
       }),
       ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.0-flash-lite',
         contents: complimentPrompt,
       }),
     ]);
 
     // ── Extract image ─────────────────────────────────────────────────────
-    const imageBytes = imageResult.generatedImages?.[0]?.image?.imageBytes;
-    if (!imageBytes) {
+    let imageDataUrl: string | null = null;
+    const candidate = imageResult.candidates?.[0];
+    if (candidate?.content?.parts) {
+      for (const part of candidate.content.parts as Array<Record<string, unknown>>) {
+        const id = part['inlineData'] as { data: string; mimeType: string } | undefined;
+        if (id?.data) {
+          imageDataUrl = `data:${id.mimeType ?? 'image/png'};base64,${id.data}`;
+          break;
+        }
+      }
+    }
+    if (!imageDataUrl) {
       res.status(502).json({ error: 'AI did not return an image. Please try again.' });
       return;
     }
-    const imageDataUrl = `data:image/jpeg;base64,${imageBytes}`;
 
     // ── Extract compliment ─────────────────────────────────────────────────
     const compliment = (complimentResult as unknown as { text: string }).text?.trim();
