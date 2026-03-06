@@ -34,7 +34,8 @@ app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:8080','https://aidevcommunity.vercel.app'],
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Routes

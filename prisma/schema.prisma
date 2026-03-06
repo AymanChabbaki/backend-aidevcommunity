@@ -543,3 +543,15 @@ model QuizAnswer {
 
   @@map("quiz_answers")
 }
+
+model WomensDaySubmission {
+  id         String   @id @default(uuid())
+  name       String
+  interests  String   @db.Text
+  dream      String   @db.Text
+  imageUrl   String   @db.Text
+  compliment String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("womens_day_submissions")
+}

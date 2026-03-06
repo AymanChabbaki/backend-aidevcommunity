@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { v2 as cloudinary } from 'cloudinary';
+import prisma from '../lib/prisma';
 
 // ─── Cloudinary setup (shared config already loaded via upload.ts but we
 //     initialise here too for safety – idempotent) ─────────────────────────
@@ -117,6 +118,27 @@ export const generate = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // ── Upload generated image to Cloudinary ──────────────────────────────
+    let savedImageUrl = imageDataUrl;
+    try {
+      const uploadResult = await cloudinary.uploader.upload(imageDataUrl, {
+        folder: 'womens-day-submissions',
+        resource_type: 'image',
+      });
+      savedImageUrl = uploadResult.secure_url;
+    } catch (uploadErr) {
+      console.error('[WomensDay] Cloudinary upload error (proceeding with base64):', uploadErr);
+    }
+
+    // ── Persist submission ─────────────────────────────────────────────────
+    try {
+      await prisma.womensDaySubmission.create({
+        data: { name: n, interests: i, dream: d, imageUrl: savedImageUrl, compliment },
+      });
+    } catch (dbErr) {
+      console.error('[WomensDay] DB save error (non-fatal):', dbErr);
+    }
+
     res.json({ imageDataUrl, compliment });
   } catch (err: unknown) {
     console.error('[WomensDay] generate error:', err);
@@ -144,6 +166,22 @@ export const uploadPhoto = async (req: Request, res: Response): Promise<void> =>
   } catch (err: unknown) {
     console.error('[WomensDay] uploadPhoto error:', err);
     const message = err instanceof Error ? err.message : 'Upload failed';
+    res.status(500).json({ error: message });
+  }
+};
+
+// ─── GET /api/womensday/submissions ─────────────────────────────────────────
+//  Admin / Staff only
+//  Returns: { submissions: [...] }
+export const getSubmissions = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const submissions = await prisma.womensDaySubmission.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({ submissions });
+  } catch (err: unknown) {
+    console.error('[WomensDay] getSubmissions error:', err);
+    const message = err instanceof Error ? err.message : 'Internal server error';
     res.status(500).json({ error: message });
   }
 };
