@@ -555,3 +555,15 @@ model WomensDaySubmission {
 
   @@map("womens_day_submissions")
 }
+
+model EidSubmission {
+  id         String   @id @default(uuid())
+  name       String
+  interests  String   @db.Text
+  dream      String   @db.Text
+  imageUrl   String   @db.Text
+  compliment String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("eid_submissions")
+}
