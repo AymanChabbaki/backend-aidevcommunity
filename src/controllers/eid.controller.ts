@@ -132,7 +132,7 @@ export const generate = async (req: Request, res: Response): Promise<void> => {
       console.error('[Eid] DB save error (non-fatal):', dbErr);
     }
 
-    res.json({ imageDataUrl, compliment });
+    res.json({ imageDataUrl: savedImageUrl, compliment });
   } catch (err: unknown) {
     console.error('[Eid] generate error:', err);
     const message = err instanceof Error ? err.message : 'Internal server error';
