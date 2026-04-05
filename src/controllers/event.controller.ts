@@ -8,6 +8,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { sendEmail, emailTemplates } from '../services/email.service';
 import { format } from 'date-fns';
 import prisma from '../lib/prisma';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 export const getAllEvents = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { status, category, search } = req.query;
@@ -158,6 +160,7 @@ export const createEvent = asyncHandler(async (req: AuthRequest, res: Response) 
     category,
     speaker,
     requiresApproval,
+    allowGuestRegistration,
     eligibleLevels,
     eligiblePrograms
   } = req.body;
@@ -177,6 +180,7 @@ export const createEvent = asyncHandler(async (req: AuthRequest, res: Response) 
       speaker,
       organizerId: req.user!.id,
       requiresApproval: requiresApproval || false,
+      allowGuestRegistration: allowGuestRegistration || false,
       eligibleLevels: eligibleLevels || [],
       eligiblePrograms: eligiblePrograms || []
     }
@@ -537,6 +541,7 @@ export const updateEvent = asyncHandler(async (req: AuthRequest, res: Response) 
   if (tags !== undefined) updateData.tags = tags;
   if (req.body.status !== undefined) updateData.status = req.body.status;
   if (requiresApproval !== undefined) updateData.requiresApproval = requiresApproval;
+  if (req.body.allowGuestRegistration !== undefined) updateData.allowGuestRegistration = req.body.allowGuestRegistration;
   if (eligibleLevels !== undefined) updateData.eligibleLevels = eligibleLevels;
   if (eligiblePrograms !== undefined) updateData.eligiblePrograms = eligiblePrograms;
 
@@ -1014,4 +1019,155 @@ export const downloadBadge = asyncHandler(async (req: AuthRequest, res: Response
   res.setHeader('Content-Disposition', `attachment; filename="badge-${safeName}.pdf"`);
   res.setHeader('Content-Length', pdfBuffer.length);
   res.send(pdfBuffer);
+});
+
+/**
+ * POST /events/:id/register-guest
+ * Public route — creates a new user account from visitor data and registers them for the event in one step.
+ */
+export const registerAsGuest = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const {
+    displayName,
+    email,
+    password,
+    phone,
+    studyLevel,
+    studyProgram,
+    github,
+    linkedin,
+  } = req.body;
+
+  // Validate required fields
+  if (!displayName || !email || !password) {
+    return res.status(400).json({
+      success: false,
+      error: 'Name, email and password are required'
+    });
+  }
+
+  // Validate password strength
+  if (password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      error: 'Password must be at least 6 characters'
+    });
+  }
+
+  // Fetch event and check it allows guest registration
+  const event = await prisma.event.findUnique({
+    where: { id },
+    include: { _count: { select: { registrations: true } } }
+  });
+
+  if (!event) {
+    return res.status(404).json({ success: false, error: 'Event not found' });
+  }
+
+  if (!event.allowGuestRegistration) {
+    return res.status(403).json({
+      success: false,
+      error: 'This event does not allow visitor registration. Please create an account first.'
+    });
+  }
+
+  // Check capacity
+  if (event._count.registrations >= event.capacity) {
+    return res.status(400).json({ success: false, error: 'Event is at full capacity' });
+  }
+
+  // Check if email already exists
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  if (existingUser) {
+    return res.status(409).json({
+      success: false,
+      error: 'An account with this email already exists. Please log in to register for this event.',
+      code: 'EMAIL_EXISTS'
+    });
+  }
+
+  // Hash password and create user account
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  const newUser = await prisma.user.create({
+    data: {
+      email,
+      passwordHash,
+      displayName,
+      role: 'USER',
+      studyLevel: (studyLevel as any) || null,
+      studyProgram: (studyProgram as any) || null,
+      github: github || null,
+      linkedin: linkedin || null,
+    },
+    select: {
+      id: true,
+      email: true,
+      displayName: true,
+      role: true,
+      studyLevel: true,
+      studyProgram: true,
+      github: true,
+      linkedin: true,
+      createdAt: true
+    }
+  });
+
+  // Create JWT tokens
+  const accessToken = jwt.sign(
+    { id: newUser.id, email: newUser.email, role: newUser.role },
+    process.env.JWT_SECRET as string,
+    { expiresIn: process.env.JWT_EXPIRES_IN || '1h' } as jwt.SignOptions
+  );
+
+  const refreshToken = jwt.sign(
+    { id: newUser.id },
+    process.env.JWT_REFRESH_SECRET as string,
+    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' } as jwt.SignOptions
+  );
+
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+  await prisma.refreshToken.create({
+    data: { token: refreshToken, userId: newUser.id, expiresAt }
+  });
+
+  // Register for the event
+  const qrToken = uuidv4();
+
+  const registration = await prisma.registration.create({
+    data: {
+      eventId: id,
+      userId: newUser.id,
+      qrToken,
+      status: 'PENDING'
+    },
+    include: {
+      event: true,
+      user: {
+        select: { displayName: true, email: true }
+      }
+    }
+  });
+
+  // Welcome notification
+  await prisma.notification.create({
+    data: {
+      userId: newUser.id,
+      type: 'EVENT_CONFIRMATION',
+      title: 'Welcome & Registration Pending',
+      content: `Welcome to AI Dev Community! Your registration for "${event.title}" is pending staff approval.`
+    }
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Account created and registration submitted — awaiting staff approval',
+    data: {
+      user: newUser,
+      accessToken,
+      refreshToken,
+      registration
+    }
+  });
 });

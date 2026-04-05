@@ -74,9 +74,10 @@ model Event {
   status           EventStatus    @default(UPCOMING)
   category         String?
   speaker          String?
-  requiresApproval Boolean        @default(false) @map("requires_approval")
-  eligibleLevels   Json?          @map("eligible_levels")
-  eligiblePrograms Json?          @map("eligible_programs")
+  requiresApproval        Boolean        @default(false) @map("requires_approval")
+  allowGuestRegistration  Boolean        @default(false) @map("allow_guest_registration")
+  eligibleLevels          Json?          @map("eligible_levels")
+  eligiblePrograms        Json?          @map("eligible_programs")
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
   organizer     User              @relation("EventOrganizer", fields: [organizerId], references: [id])

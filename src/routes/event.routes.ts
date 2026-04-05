@@ -6,6 +6,7 @@ import {
   updateEvent,
   deleteEvent,
   registerForEvent,
+  registerAsGuest,
   checkIn,
   checkInByToken,
   getEventRegistrations,
@@ -51,6 +52,7 @@ router.post('/', authenticate, authorize('STAFF', 'ADMIN'), createEvent);
 router.put('/:id', authenticate, authorize('STAFF', 'ADMIN'), updateEvent);
 router.delete('/:id', authenticate, authorize('STAFF', 'ADMIN'), deleteEvent);
 router.post('/:id/register', authenticate, registerForEvent);
+router.post('/:id/register-guest', registerAsGuest); // Public — no auth required
 router.post('/:id/checkin', authenticate, authorize('STAFF', 'ADMIN'), checkIn);
 router.get('/:id/registrations', authenticate, authorize('STAFF', 'ADMIN'), getEventRegistrations);
 router.get('/:id/registrations/export', authenticate, authorize('STAFF', 'ADMIN'), exportRegistrations);
