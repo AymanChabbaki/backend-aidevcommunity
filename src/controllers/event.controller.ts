@@ -162,7 +162,9 @@ export const createEvent = asyncHandler(async (req: AuthRequest, res: Response) 
     requiresApproval,
     allowGuestRegistration,
     eligibleLevels,
-    eligiblePrograms
+    eligiblePrograms,
+    customFields,
+    useCustomBadge
   } = req.body;
 
   const event = await prisma.event.create({
@@ -182,7 +184,9 @@ export const createEvent = asyncHandler(async (req: AuthRequest, res: Response) 
       requiresApproval: requiresApproval || false,
       allowGuestRegistration: allowGuestRegistration || false,
       eligibleLevels: eligibleLevels || [],
-      eligiblePrograms: eligiblePrograms || []
+      eligiblePrograms: eligiblePrograms || [],
+      customFields: customFields || [],
+      useCustomBadge: useCustomBadge || false
     }
   });
 
@@ -295,17 +299,16 @@ export const registerForEvent = asyncHandler(async (req: AuthRequest, res: Respo
 
   // Generate QR token
   const qrToken = uuidv4();
-
-  // Always start as PENDING — staff/admin must approve
   const status = 'PENDING';
+  const customFieldValues = req.body.customFieldValues || null;
 
-  // Create registration
   const registration = await prisma.registration.create({
     data: {
       eventId: id,
       userId: req.user!.id,
       qrToken,
-      status
+      status,
+      ...(customFieldValues ? { customFieldValues } : {})
     },
     include: {
       event: true,
@@ -544,6 +547,8 @@ export const updateEvent = asyncHandler(async (req: AuthRequest, res: Response) 
   if (req.body.allowGuestRegistration !== undefined) updateData.allowGuestRegistration = req.body.allowGuestRegistration;
   if (eligibleLevels !== undefined) updateData.eligibleLevels = eligibleLevels;
   if (eligiblePrograms !== undefined) updateData.eligiblePrograms = eligiblePrograms;
+  if (req.body.customFields !== undefined) updateData.customFields = req.body.customFields;
+  if (req.body.useCustomBadge !== undefined) updateData.useCustomBadge = req.body.useCustomBadge;
 
   const updatedEvent = await prisma.event.update({
     where: { id },
@@ -1134,13 +1139,15 @@ export const registerAsGuest = asyncHandler(async (req: AuthRequest, res: Respon
 
   // Register for the event
   const qrToken = uuidv4();
+  const guestCustomFieldValues = req.body.customFieldValues || null;
 
   const registration = await prisma.registration.create({
     data: {
       eventId: id,
       userId: newUser.id,
       qrToken,
-      status: 'PENDING'
+      status: 'PENDING',
+      ...(guestCustomFieldValues ? { customFieldValues: guestCustomFieldValues } : {})
     },
     include: {
       event: true,

@@ -78,6 +78,8 @@ model Event {
   allowGuestRegistration  Boolean        @default(false) @map("allow_guest_registration")
   eligibleLevels          Json?          @map("eligible_levels")
   eligiblePrograms        Json?          @map("eligible_programs")
+  customFields            Json?          @map("custom_fields")          // [{id,label,type,options?,required}]
+  useCustomBadge          Boolean        @default(false) @map("use_custom_badge")
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
   organizer     User              @relation("EventOrganizer", fields: [organizerId], references: [id])
@@ -117,11 +119,12 @@ model Registration {
   status      RegistrationStatus @default(REGISTERED)
   badgeUrl    String?            @map("badge_url")
   qrToken       String             @unique @map("qr_token")
-  checkedInAt   DateTime?          @map("checked_in_at")
-  reviewedBy    String?            @map("reviewed_by")
-  reviewedAt    DateTime?          @map("reviewed_at")
-  reviewComment String?            @map("review_comment") @db.Text
-  createdAt     DateTime           @default(now()) @map("created_at")
+  checkedInAt        DateTime?          @map("checked_in_at")
+  reviewedBy         String?            @map("reviewed_by")
+  reviewedAt         DateTime?          @map("reviewed_at")
+  reviewComment      String?            @map("review_comment") @db.Text
+  customFieldValues  Json?              @map("custom_field_values")  // {fieldId: value}
+  createdAt          DateTime           @default(now()) @map("created_at")
   event       Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
