@@ -652,7 +652,8 @@ export const getPendingRegistrations = asyncHandler(async (req: AuthRequest, res
           requiresApproval: true,
           eligibleLevels: true,
           eligiblePrograms: true,
-          organizerId: true
+          organizerId: true,
+          customFields: true   // ← field definitions so labels resolve
         }
       },
       user: {
