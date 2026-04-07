@@ -18,7 +18,12 @@ interface EmailOptions {
   subject: string;
   html: string;
   text?: string;
-  attachments?: { filename?: string; path: string; contentType?: string }[];
+  attachments?: { 
+    filename?: string; 
+    path?: string; 
+    content?: any; 
+    contentType?: string 
+  }[];
 }
 
 export const sendEmail = async (options: EmailOptions): Promise<boolean> => {

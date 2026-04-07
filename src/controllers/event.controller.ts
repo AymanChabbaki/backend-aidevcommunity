@@ -10,6 +10,9 @@ import { format } from 'date-fns';
 import prisma from '../lib/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import axios from 'axios';
+import path from 'path';
+import fs from 'fs';
 
 export const getAllEvents = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { status, category, search } = req.query;
@@ -752,11 +755,27 @@ export const approveRegistration = asyncHandler(async (req: AuthRequest, res: Re
       frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
     }
   );
+
+  // Generate and attach badge PDF
+  let attachments = undefined;
+  try {
+    const pdfBuffer = await generateBadgePDF(registration.id, registration.qrToken);
+    const safeName = registration.event.title.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+    attachments = [{
+      filename: `badge-${safeName}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf'
+    }];
+  } catch (err) {
+    console.error('Failed to generate badge for email attachment:', err);
+  }
+
   await sendEmail({
     to: registration.user.email,
     subject: emailTemplate.subject,
     html: emailTemplate.html,
-    text: emailTemplate.text
+    text: emailTemplate.text,
+    attachments
   });
 
   // Create audit log
@@ -926,8 +945,7 @@ export const downloadBadge = asyncHandler(async (req: AuthRequest, res: Response
   const registration = await prisma.registration.findUnique({
     where: { id },
     include: {
-      event: true,
-      user: { select: { id: true, displayName: true, email: true } }
+      event: true
     }
   });
 
@@ -939,93 +957,177 @@ export const downloadBadge = asyncHandler(async (req: AuthRequest, res: Response
     return res.status(403).json({ success: false, error: 'Badge only available for approved registrations' });
   }
 
-  // Generate QR code as PNG buffer — encode qrToken so scanner can check in
-  const qrBuffer = await QRCode.toBuffer(registration.qrToken, { width: 180, margin: 1 });
+  try {
+    const pdfBuffer = await generateBadgePDF(registration.id, registration.qrToken);
+    const safeName = registration.event.title.replace(/[^a-z0-9]/gi, '-').toLowerCase();
 
-  // Build PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="badge-${safeName}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+  } catch (error: any) {
+    console.error('Error in downloadBadge:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate badge: ' + error.message });
+  }
+});
+
+/**
+ * Reusable helper to generate the badge PDF (Standard or Custom Template)
+ */
+let badgeTemplateCache: Buffer | null = null;
+
+async function getBadgeTemplate(): Promise<Buffer | null> {
+  if (badgeTemplateCache) return badgeTemplateCache;
+  
+  const frontendUrl = process.env.FRONTEND_URL || 'https://aidevcommunity.vercel.app';
+  const templateUrl = `${frontendUrl}/badge.png`;
+  
+  try {
+    const response = await axios.get(templateUrl, { responseType: 'arraybuffer' });
+    badgeTemplateCache = Buffer.from(response.data);
+    return badgeTemplateCache;
+  } catch (err) {
+    console.error('Failed to fetch badge template from frontend URL:', templateUrl);
+    return null;
+  }
+}
+
+async function generateBadgePDF(registrationId: string, token: string): Promise<Buffer> {
+  const registration = await prisma.registration.findUnique({
+    where: { id: registrationId },
+    include: {
+      event: true,
+      user: { select: { id: true, displayName: true, email: true } }
+    }
+  });
+
+  if (!registration) throw new Error('Registration not found');
+
+  const ev = registration.event as any;
+  const qrBuffer = await QRCode.toBuffer(token, { width: 180, margin: 1 });
+  
+  // Create PDF (A4 is 595.28 x 841.89 points)
   const doc = new PDFDocument({ size: 'A4', margin: 0 });
   const chunks: Buffer[] = [];
   doc.on('data', (c: Buffer) => chunks.push(c));
 
-  await new Promise<void>((resolve) => {
-    doc.on('end', resolve);
+  return new Promise<Buffer>(async (resolve, reject) => {
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
 
     const pageW = 595.28;
     const pageH = 841.89;
+    const mmToPt = 595.28 / 210; // ~2.8346
 
-    // Header background
-    doc.rect(0, 0, pageW, 140).fill('#14b8a6');
+    // ─── A: Custom Badge Path (High Fidelity Mirror) ──────────────────────
+    if (ev.useCustomBadge) {
+      const templateBuffer = await getBadgeTemplate();
+      if (templateBuffer) {
+        doc.image(templateBuffer, 0, 0, { width: pageW, height: pageH });
+      }
 
-    // Header text
-    doc.fillColor('#ffffff').fontSize(28).font('Helvetica-Bold')
-      .text('AI Dev Community', 0, 38, { align: 'center', width: pageW });
-    doc.fontSize(13).font('Helvetica')
-      .text('Event Registration Badge', 0, 75, { align: 'center', width: pageW });
+      // 1. Event Title
+      // Box: 7mm x 51.3mm (143.7w x 28h)
+      // Conversion: Box(19.8x, 145.4y, 407.3w, 79.4h)
+      const titleBox = { x: 7 * mmToPt, y: 51.3 * mmToPt, w: 143.7 * mmToPt, h: 28 * mmToPt };
+      const eventTitle = (ev.titleAr || ev.titleFr || ev.title || '').toUpperCase();
+      
+      // Start at 31 pt
+      let titleSize = 31;
+      doc.font('Helvetica-Bold').fontSize(titleSize).fillColor('#FFFFFF');
+      
+      // Shrink logic
+      while (doc.widthOfString(eventTitle) > titleBox.w * 0.95 && titleSize > 10) {
+        titleSize -= 1;
+        doc.fontSize(titleSize);
+      }
+      
+      doc.text(eventTitle, titleBox.x, titleBox.y + (titleBox.h - titleSize * 1.2) / 2, {
+        width: titleBox.w,
+        align: 'center'
+      });
 
-    // White card area
-    const cardX = 50, cardY = 155, cardW = pageW - 100, cardH = 340;
-    doc.roundedRect(cardX, cardY, cardW, cardH, 8).stroke('#14b8a6');
+      // 2. Attendee Name
+      // Box: 75.2mm x 115.8mm (94.5w x 12.2h)
+      const nameBox = { x: 75.2 * mmToPt, y: 115.8 * mmToPt, w: 94.5 * mmToPt, h: 12.2 * mmToPt };
+      const attendeeName = (registration.user.displayName || registration.user.email).toUpperCase();
+      let nameSize = 16;
+      doc.font('Helvetica-Bold').fontSize(nameSize).fillColor('#1e293b');
+      while (doc.widthOfString(attendeeName) > nameBox.w * 0.95 && nameSize > 8) {
+        nameSize -= 1;
+        doc.fontSize(nameSize);
+      }
+      doc.text(attendeeName, nameBox.x, nameBox.y + (nameBox.h - nameSize * 1.2) / 2, {
+        width: nameBox.w,
+        align: 'center'
+      });
 
-    // Event title
-    const ev = registration.event as any;
-    const title = ev.title || 'Event';
-    doc.fillColor('#1e293b').fontSize(20).font('Helvetica-Bold')
-      .text(title, cardX + 20, cardY + 20, { width: cardW - 40, align: 'center' });
+      // 3. QR Code
+      // Box: 8.9mm x 154.4mm (84w x 84h)
+      const qrBox = { x: 8.9 * mmToPt, y: 154.4 * mmToPt, w: 84 * mmToPt, h: 84 * mmToPt };
+      // White backing for QR (optional, mimics frontend board)
+      doc.roundedRect(qrBox.x - 2, qrBox.y - 2, qrBox.w + 4, qrBox.h + 4, 4).fill('#FFFFFF');
+      doc.image(qrBuffer, qrBox.x, qrBox.y, { width: qrBox.w, height: qrBox.h });
 
-    let y = cardY + 70;
+      // 4. Date
+      // Box: 18.3mm x 251.6mm (65.3w x 5.7h)
+      const dateBox = { x: 18.3 * mmToPt, y: 251.6 * mmToPt, w: 65.3 * mmToPt, h: 5.7 * mmToPt };
+      const dateText = format(new Date(ev.startAt), 'PPP p');
+      doc.font('Helvetica').fontSize(9).fillColor('#475569');
+      doc.text(dateText, dateBox.x, dateBox.y, { width: dateBox.w, align: 'center' });
 
-    // Attendee
-    doc.fillColor('#475569').fontSize(12).font('Helvetica').text('Attendee:', cardX + 20, y);
-    doc.fillColor('#14b8a6').fontSize(14).font('Helvetica-Bold')
-      .text(registration.user.displayName || registration.user.email, cardX + 20, y + 16);
-    y += 48;
+    } else {
+      // ─── B: Standard Layout (Current) ──────────────────────────────────
+      // Header background
+      doc.rect(0, 0, pageW, 140).fill('#14b8a6');
 
-    // Date
-    doc.fillColor('#475569').fontSize(12).font('Helvetica').text('Date:', cardX + 20, y);
-    doc.fillColor('#1e293b').fontSize(12).font('Helvetica')
-      .text(format(new Date(ev.startAt), 'PPP p'), cardX + 20, y + 16);
-    y += 44;
+      // Header text
+      doc.fillColor('#ffffff').fontSize(28).font('Helvetica-Bold')
+        .text('AI Dev Community', 0, 38, { align: 'center', width: pageW });
+      doc.fontSize(13).font('Helvetica')
+        .text('Event Registration Badge', 0, 75, { align: 'center', width: pageW });
 
-    // Location
-    doc.fillColor('#475569').fontSize(12).font('Helvetica').text('Location:', cardX + 20, y);
-    doc.fillColor('#1e293b').fontSize(12).font('Helvetica')
-      .text(ev.locationText || ev.location || 'TBA', cardX + 20, y + 16, { width: cardW - 40 });
-    y += 48;
+      // White card area
+      const cardX = 50, cardY = 155, cardW = pageW - 100, cardH = 340;
+      doc.roundedRect(cardX, cardY, cardW, cardH, 8).stroke('#14b8a6');
 
-    // Registration ID
-    doc.fillColor('#94a3b8').fontSize(9).font('Helvetica')
-      .text(`Registration ID: ${registration.id}`, cardX + 20, y, { width: cardW - 40 });
+      // Info
+      const title = ev.title || 'Event';
+      doc.fillColor('#1e293b').fontSize(20).font('Helvetica-Bold')
+        .text(title, cardX + 20, cardY + 20, { width: cardW - 40, align: 'center' });
 
-    // QR code
-    const qrSize = 120;
-    const qrX = (pageW - qrSize) / 2;
-    const qrY = cardY + cardH + 20;
-    doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
-    doc.fillColor('#475569').fontSize(9).font('Helvetica')
-      .text('Scan for verification', 0, qrY + qrSize + 6, { align: 'center', width: pageW });
+      let y = cardY + 70;
+      doc.fillColor('#475569').fontSize(12).font('Helvetica').text('Attendee:', cardX + 20, y);
+      doc.fillColor('#14b8a6').fontSize(14).font('Helvetica-Bold')
+        .text(registration.user.displayName || registration.user.email, cardX + 20, y + 16);
+      y += 48;
 
-    // Footer
-    const footerY = pageH - 70;
-    doc.rect(0, footerY, pageW, 70).fill('#f8fafc');
-    doc.moveTo(0, footerY).lineTo(pageW, footerY).stroke('#14b8a6');
-    doc.fillColor('#475569').fontSize(9).font('Helvetica-Bold')
-      .text('Contact Us:', 0, footerY + 10, { align: 'center', width: pageW });
-    doc.font('Helvetica').fontSize(8)
-      .text('Email: contactaidevcommunity@gmail.com', 0, footerY + 24, { align: 'center', width: pageW })
-      .text('Phone: +212 687830201', 0, footerY + 36, { align: 'center', width: pageW })
-      .text("Location: Faculty of Science Ben M'sik, Casablanca, Morocco", 0, footerY + 48, { align: 'center', width: pageW });
+      doc.fillColor('#475569').fontSize(12).font('Helvetica').text('Date:', cardX + 20, y);
+      doc.fillColor('#1e293b').fontSize(12).font('Helvetica')
+        .text(format(new Date(ev.startAt), 'PPP p'), cardX + 20, y + 16);
+      y += 44;
+
+      doc.fillColor('#475569').fontSize(12).font('Helvetica').text('Location:', cardX + 20, y);
+      doc.fillColor('#1e293b').fontSize(12).font('Helvetica')
+        .text(ev.locationText || ev.location || 'TBA', cardX + 20, y + 16, { width: cardW - 40 });
+      
+      const qrSize = 120;
+      const qrX = (pageW - qrSize) / 2;
+      const qrY = cardY + cardH + 20;
+      doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
+      doc.fillColor('#475569').fontSize(9).font('Helvetica').text('Scan for verification', 0, qrY + qrSize + 6, { align: 'center', width: pageW });
+
+      // Footer
+      const footerY = pageH - 70;
+      doc.rect(0, footerY, pageW, 70).fill('#f8fafc');
+      doc.moveTo(0, footerY).lineTo(pageW, footerY).stroke('#14b8a6');
+      doc.fillColor('#475569').fontSize(9).font('Helvetica-Bold').text('Contact Us:', 0, footerY + 10, { align: 'center', width: pageW });
+      doc.font('Helvetica').fontSize(8).text('Email: contactaidevcommunity@gmail.com', 0, footerY + 24, { align: 'center', width: pageW });
+    }
 
     doc.end();
   });
-
-  const pdfBuffer = Buffer.concat(chunks);
-  const safeName = registration.event.title.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="badge-${safeName}.pdf"`);
-  res.setHeader('Content-Length', pdfBuffer.length);
-  res.send(pdfBuffer);
-});
+}
 
 /**
  * POST /events/:id/register-guest
