@@ -1078,7 +1078,7 @@ async function generateBadgePDF(registrationId: string, token: string): Promise<
       // Box: 75.2mm x 115.8mm (94.5w x 12.2h)
       const nameBox = { x: 75.2 * mmToPt, y: 115.8 * mmToPt, w: 94.5 * mmToPt, h: 12.2 * mmToPt };
       const attendeeName = (registration.user.displayName || registration.user.email).toUpperCase();
-      let nameSize = 16.5;
+      let nameSize = 15 * mmToPt;
       doc.font('Helvetica-Bold').fontSize(nameSize);
       while (doc.widthOfString(attendeeName) > nameBox.w * 0.95 && nameSize > 8) {
         nameSize -= 0.5;
