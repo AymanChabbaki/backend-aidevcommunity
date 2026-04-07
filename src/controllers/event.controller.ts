@@ -1026,55 +1026,93 @@ async function generateBadgePDF(registrationId: string, token: string): Promise<
         doc.image(templateBuffer, 0, 0, { width: pageW, height: pageH });
       }
 
-      // 1. Event Title
+      // 1. Event Title (High-Fidelity Wrapping Engine)
       // Box: 7mm x 51.3mm (143.7w x 28h)
-      // Conversion: Box(19.8x, 145.4y, 407.3w, 79.4h)
       const titleBox = { x: 7 * mmToPt, y: 51.3 * mmToPt, w: 143.7 * mmToPt, h: 28 * mmToPt };
       const eventTitle = (ev.titleAr || ev.titleFr || ev.title || '').toUpperCase();
       
-      // Start at 31 pt
       let titleSize = 31;
-      doc.font('Helvetica-Bold').fontSize(titleSize).fillColor('#FFFFFF');
-      
-      // Shrink logic
-      while (doc.widthOfString(eventTitle) > titleBox.w * 0.95 && titleSize > 10) {
+      let titleLines: string[] = [];
+      let totalHeight = 0;
+
+      // Iterative Wrap & Shrink Loop
+      while (titleSize > 8) {
+        doc.font('Helvetica-Bold').fontSize(titleSize);
+        const words = eventTitle.split(' ');
+        const lines: string[] = [];
+        let currentLine = words[0];
+
+        for (let i = 1; i < words.length; i++) {
+          const testLine = currentLine + ' ' + words[i];
+          if (doc.widthOfString(testLine) > titleBox.w * 0.95) {
+            lines.push(currentLine);
+            currentLine = words[i];
+          } else {
+            currentLine = testLine;
+          }
+        }
+        lines.push(currentLine);
+
+        const lineHeight = titleSize * 1.15;
+        totalHeight = lines.length * lineHeight;
+
+        if (totalHeight <= titleBox.h * 0.95 && !lines.some(l => doc.widthOfString(l) > titleBox.w * 0.95)) {
+          titleLines = lines;
+          break;
+        }
         titleSize -= 1;
-        doc.fontSize(titleSize);
       }
+
+      const lineHeight = titleSize * 1.15;
+      let currentY = titleBox.y + (titleBox.h - totalHeight) / 2;
       
-      doc.text(eventTitle, titleBox.x, titleBox.y + (titleBox.h - titleSize * 1.2) / 2, {
-        width: titleBox.w,
-        align: 'center'
+      titleLines.forEach(line => {
+        // Shadow layer
+        doc.fillColor('#000000').fillOpacity(0.25).text(line, titleBox.x + 0.5, currentY + 0.5, { width: titleBox.w, align: 'center' });
+        // Main layer
+        doc.fillColor('#FFFFFF').fillOpacity(1).text(line, titleBox.x, currentY, { width: titleBox.w, align: 'center' });
+        currentY += lineHeight;
       });
 
-      // 2. Attendee Name
+      // 2. Attendee Name (White + Shadow) 
       // Box: 75.2mm x 115.8mm (94.5w x 12.2h)
       const nameBox = { x: 75.2 * mmToPt, y: 115.8 * mmToPt, w: 94.5 * mmToPt, h: 12.2 * mmToPt };
       const attendeeName = (registration.user.displayName || registration.user.email).toUpperCase();
-      let nameSize = 16;
-      doc.font('Helvetica-Bold').fontSize(nameSize).fillColor('#1e293b');
+      let nameSize = 16.5;
+      doc.font('Helvetica-Bold').fontSize(nameSize);
       while (doc.widthOfString(attendeeName) > nameBox.w * 0.95 && nameSize > 8) {
-        nameSize -= 1;
+        nameSize -= 0.5;
         doc.fontSize(nameSize);
       }
-      doc.text(attendeeName, nameBox.x, nameBox.y + (nameBox.h - nameSize * 1.2) / 2, {
-        width: nameBox.w,
-        align: 'center'
-      });
+      
+      const vCenterName = nameBox.y + (nameBox.h - nameSize * 1.25) / 2;
+      // Shadow layer
+      doc.fillColor('#000000').fillOpacity(0.35).text(attendeeName, nameBox.x + 0.5, vCenterName + 0.5, { width: nameBox.w, align: 'center' });
+      // Main layer
+      doc.fillColor('#FFFFFF').fillOpacity(1).text(attendeeName, nameBox.x, vCenterName, { width: nameBox.w, align: 'center' });
 
-      // 3. QR Code
+      // 3. QR Code (Professional Card Styling)
       // Box: 8.9mm x 154.4mm (84w x 84h)
       const qrBox = { x: 8.9 * mmToPt, y: 154.4 * mmToPt, w: 84 * mmToPt, h: 84 * mmToPt };
-      // White backing for QR (optional, mimics frontend board)
-      doc.roundedRect(qrBox.x - 2, qrBox.y - 2, qrBox.w + 4, qrBox.h + 4, 4).fill('#FFFFFF');
+      const pad = 2 * mmToPt; // 2mm padding matching frontend
+      
+      // Shadow for QR card
+      doc.roundedRect(qrBox.x - pad + 0.8, qrBox.y - pad + 0.8, qrBox.w + pad * 2, qrBox.h + pad * 2, 4 * mmToPt).fillColor('#000000').fillOpacity(0.1).fill();
+      // White Board
+      doc.roundedRect(qrBox.x - pad, qrBox.y - pad, qrBox.w + pad * 2, qrBox.h + pad * 2, 4 * mmToPt).fillColor('#FFFFFF').fillOpacity(1).fill();
       doc.image(qrBuffer, qrBox.x, qrBox.y, { width: qrBox.w, height: qrBox.h });
 
-      // 4. Date
+      // 4. Date (White Centered)
       // Box: 18.3mm x 251.6mm (65.3w x 5.7h)
       const dateBox = { x: 18.3 * mmToPt, y: 251.6 * mmToPt, w: 65.3 * mmToPt, h: 5.7 * mmToPt };
-      const dateText = format(new Date(ev.startAt), 'PPP p');
-      doc.font('Helvetica').fontSize(9).fillColor('#475569');
-      doc.text(dateText, dateBox.x, dateBox.y, { width: dateBox.w, align: 'center' });
+      const dateText = format(new Date(ev.startAt), "MMM dd, yyyy • HH:mm").toUpperCase();
+      doc.font('Helvetica').fontSize(6 * mmToPt).fillColor('#FFFFFF').fillOpacity(0.9);
+      doc.text(dateText, dateBox.x, dateBox.y + (dateBox.h - 6 * mmToPt) / 2, { 
+        width: dateBox.w, 
+        align: 'center',
+        characterSpacing: 0.5
+      });
+      doc.fillOpacity(1); // Reset for next entries if any
 
     } else {
       // ─── B: Standard Layout (Current) ──────────────────────────────────
