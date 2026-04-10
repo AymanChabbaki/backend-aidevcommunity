@@ -104,6 +104,108 @@ export const updateUserRole = asyncHandler(async (req: AuthRequest, res: Respons
   });
 });
 
+export const updateUser = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { id } = req.params;
+  const {
+    email,
+    displayName,
+    role,
+    staffRole,
+    bio,
+    studyLevel,
+    studyProgram,
+    publicProfile,
+    github,
+    linkedin,
+    twitter,
+    locale
+  } = req.body;
+
+  // Basic validation
+  if (role && !['USER', 'STAFF', 'ADMIN'].includes(role)) {
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid role'
+    });
+  }
+
+  // Check if email is already taken by another user
+  if (email) {
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email,
+        id: { not: id }
+      }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is already in use by another account'
+      });
+    }
+  }
+
+  const updateData: any = {};
+  if (email !== undefined) updateData.email = email;
+  if (displayName !== undefined) updateData.displayName = displayName;
+  if (role !== undefined) updateData.role = role;
+  if (staffRole !== undefined) updateData.staffRole = staffRole;
+  if (bio !== undefined) updateData.bio = bio;
+  if (studyLevel !== undefined) updateData.studyLevel = studyLevel;
+  if (studyProgram !== undefined) updateData.studyProgram = studyProgram;
+  if (publicProfile !== undefined) updateData.publicProfile = publicProfile;
+  if (github !== undefined) updateData.github = github;
+  if (linkedin !== undefined) updateData.linkedin = linkedin;
+  if (twitter !== undefined) updateData.twitter = twitter;
+  if (locale !== undefined) updateData.locale = locale;
+
+  // Special handling for staffRole: clear it if role is no longer STAFF
+  if (role !== undefined && role !== 'STAFF') {
+    updateData.staffRole = null;
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id },
+    data: updateData,
+    select: {
+      id: true,
+      email: true,
+      displayName: true,
+      role: true,
+      staffRole: true,
+      bio: true,
+      studyLevel: true,
+      studyProgram: true,
+      publicProfile: true,
+      github: true,
+      linkedin: true,
+      twitter: true,
+      locale: true
+    }
+  });
+
+  // Log the comprehensive update
+  await prisma.auditLog.create({
+    data: {
+      actorId: req.user!.id,
+      action: 'ADMIN_UPDATE_USER',
+      entity: 'USER',
+      entityId: id,
+      metadata: { 
+        updatedFields: Object.keys(updateData),
+        changes: updateData 
+      }
+    }
+  });
+
+  res.json({
+    success: true,
+    data: updatedUser,
+    message: 'User updated successfully'
+  });
+});
+
 export const deleteUser = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
 
