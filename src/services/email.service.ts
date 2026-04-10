@@ -183,7 +183,7 @@ export const emailTemplates = {
                     ${subEvents.map(se => `
                       <div class="agenda-item">
                         <span class="agenda-title">${se.title}</span>
-                        <span class="agenda-time">⏱️ ${new Date(se.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — ${new Date(se.endAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span class="agenda-time">⏱️ ${new Date(se.startAt).toLocaleDateString('en-GB')} ${new Date(se.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — ${new Date(se.endAt).toLocaleDateString('en-GB')} ${new Date(se.endAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         ${se.location ? `<span class="agenda-location">📍 ${se.location}</span>` : ''}
                       </div>
                     `).join('')}
