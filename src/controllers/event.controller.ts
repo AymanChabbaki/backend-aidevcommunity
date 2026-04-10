@@ -561,7 +561,9 @@ export const getEventRegistrations = asyncHandler(async (req: AuthRequest, res: 
           id: true,
           displayName: true,
           email: true,
-          photoUrl: true
+          photoUrl: true,
+          studyLevel: true,
+          studyProgram: true
         }
       },
       subEventCheckIns: {
