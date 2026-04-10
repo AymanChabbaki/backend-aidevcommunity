@@ -86,9 +86,43 @@ model Event {
   collaborators EventCollaborator[]
   forms         Form[]
   registrations Registration[]
+  subEvents     SubEvent[]
 
   @@index([organizerId], map: "events_organizer_id_fkey")
   @@map("events")
+}
+
+model SubEvent {
+  id          String   @id @default(uuid())
+  eventId     String   @map("event_id")
+  title       String
+  description String?  @db.Text
+  startAt     DateTime @map("start_at")
+  endAt       DateTime @map("end_at")
+  location    String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  checkIns    SubEventCheckIn[]
+
+  @@index([eventId])
+  @@map("sub_events")
+}
+
+model SubEventCheckIn {
+  id             String   @id @default(uuid())
+  subEventId     String   @map("sub_event_id")
+  registrationId String   @map("registration_id")
+  checkedInAt    DateTime @default(now()) @map("checked_in_at")
+
+  subEvent       SubEvent     @relation(fields: [subEventId], references: [id], onDelete: Cascade)
+  registration   Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@unique([subEventId, registrationId])
+  @@index([subEventId])
+  @@index([registrationId])
+  @@map("sub_event_checkins")
 }
 
 model EventCollaborator {
@@ -127,6 +161,7 @@ model Registration {
   createdAt          DateTime           @default(now()) @map("created_at")
   event       Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subEventCheckIns   SubEventCheckIn[]
 
   @@unique([eventId, userId])
   @@index([userId], map: "registrations_user_id_fkey")

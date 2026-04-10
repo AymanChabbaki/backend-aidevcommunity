@@ -16,7 +16,8 @@ import {
   approveRegistration,
   rejectRegistration,
   deleteRegistration,
-  downloadBadge
+  downloadBadge,
+  checkInSubEvent
 } from '../controllers/event.controller';
 import { authenticate, authorize } from '../middleware/auth';
 import { upload } from '../middleware/upload';
@@ -41,6 +42,7 @@ router.post('/upload-image', authenticate, authorize('STAFF', 'ADMIN'), upload.s
 });
 router.get('/registrations/pending', authenticate, authorize('STAFF', 'ADMIN'), getPendingRegistrations);
 router.post('/registrations/check-in', authenticate, authorize('STAFF', 'ADMIN'), checkInByToken);
+router.post('/registrations/sub-events/check-in', authenticate, authorize('STAFF', 'ADMIN'), checkInSubEvent);
 router.get('/registrations/:id/badge', downloadBadge);
 router.put('/registrations/:id/approve', authenticate, authorize('STAFF', 'ADMIN'), approveRegistration);
 router.put('/registrations/:id/reject', authenticate, authorize('STAFF', 'ADMIN'), rejectRegistration);

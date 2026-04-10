@@ -130,6 +130,9 @@ export const getEventById = asyncHandler(async (req: AuthRequest, res: Response)
           bio: true
         }
       },
+      subEvents: {
+        orderBy: { startAt: 'asc' }
+      },
       _count: {
         select: { registrations: true }
       }
@@ -167,7 +170,8 @@ export const createEvent = asyncHandler(async (req: AuthRequest, res: Response) 
     eligibleLevels,
     eligiblePrograms,
     customFields,
-    useCustomBadge
+    useCustomBadge,
+    subEvents
   } = req.body;
 
   const event = await prisma.event.create({
@@ -189,7 +193,19 @@ export const createEvent = asyncHandler(async (req: AuthRequest, res: Response) 
       eligibleLevels: eligibleLevels || [],
       eligiblePrograms: eligiblePrograms || [],
       customFields: customFields || [],
-      useCustomBadge: useCustomBadge || false
+      useCustomBadge: useCustomBadge || false,
+      subEvents: subEvents && subEvents.length > 0 ? {
+        create: subEvents.map((se: any) => ({
+          title: se.title,
+          description: se.description,
+          startAt: new Date(se.startAt),
+          endAt: new Date(se.endAt),
+          location: se.location
+        }))
+      } : undefined
+    },
+    include: {
+      subEvents: true
     }
   });
 
@@ -395,7 +411,7 @@ export const checkIn = asyncHandler(async (req: AuthRequest, res: Response) => {
 });
 
 export const checkInByToken = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { token } = req.body;
+  const { token, subEventId } = req.body;
 
   if (!token) {
     return res.status(400).json({ success: false, error: 'Missing token' });
@@ -411,7 +427,11 @@ export const checkInByToken = asyncHandler(async (req: AuthRequest, res: Respons
     },
     include: {
       user: { select: { displayName: true, email: true, photoUrl: true } },
-      event: { select: { title: true } }
+      event: { 
+        include: { 
+          subEvents: true 
+        } 
+      }
     }
   });
 
@@ -423,10 +443,46 @@ export const checkInByToken = asyncHandler(async (req: AuthRequest, res: Respons
     return res.status(403).json({ success: false, error: 'Registration is not approved' });
   }
 
+  // Handle Sub-Event Check-in
+  if (subEventId) {
+    const subEvent = (registration.event as any).subEvents.find((se: any) => se.id === subEventId);
+    if (!subEvent) {
+      return res.status(404).json({ success: false, error: 'Sub-event not found in this event' });
+    }
+
+    const existingCheckIn = await prisma.subEventCheckIn.findUnique({
+      where: { 
+        subEventId_registrationId: { 
+          subEventId, 
+          registrationId: registration.id 
+        } 
+      }
+    });
+
+    if (existingCheckIn) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Already checked in for this session',
+        data: { name: registration.user.displayName, subEventTitle: subEvent.title }
+      });
+    }
+
+    await prisma.subEventCheckIn.create({
+      data: { subEventId, registrationId: registration.id }
+    });
+
+    return res.json({
+      success: true,
+      message: `${registration.user.displayName} checked in for ${subEvent.title}`,
+      data: { name: registration.user.displayName, eventTitle: registration.event.title, subEventTitle: subEvent.title }
+    });
+  }
+
+  // Standard Main Event Check-in
   if (registration.checkedInAt) {
     return res.status(400).json({
       success: false,
-      error: 'Already checked in',
+      error: 'Already checked in for the main event',
       data: { checkedInAt: registration.checkedInAt, name: registration.user.displayName }
     });
   }
@@ -443,6 +499,52 @@ export const checkInByToken = asyncHandler(async (req: AuthRequest, res: Respons
   });
 });
 
+export const checkInSubEvent = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const { registrationId, subEventId } = req.body;
+
+  if (!registrationId || !subEventId) {
+    return res.status(400).json({ success: false, error: 'Missing registrationId or subEventId' });
+  }
+
+  const registration = await prisma.registration.findUnique({
+    where: { id: registrationId },
+    include: { event: { include: { subEvents: true } } }
+  });
+
+  if (!registration) {
+    return res.status(404).json({ success: false, error: 'Registration not found' });
+  }
+
+  const subEvent = registration.event.subEvents.find(se => se.id === subEventId);
+  if (!subEvent) {
+    return res.status(404).json({ success: false, error: 'Sub-event not found' });
+  }
+
+  const existingCheckIn = await prisma.subEventCheckIn.findUnique({
+    where: { 
+      subEventId_registrationId: { 
+        subEventId, 
+        registrationId 
+      } 
+    }
+  });
+
+  if (existingCheckIn) {
+    return res.status(400).json({ success: false, error: 'Already checked in for this session' });
+  }
+
+  const checkIn = await prisma.subEventCheckIn.create({
+    data: { subEventId, registrationId },
+    include: { subEvent: true }
+  });
+
+  res.json({ 
+    success: true, 
+    message: `Checked in for ${checkIn.subEvent.title}`,
+    data: checkIn 
+  });
+});
+
 export const getEventRegistrations = asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
 
@@ -455,6 +557,16 @@ export const getEventRegistrations = asyncHandler(async (req: AuthRequest, res: 
           displayName: true,
           email: true,
           photoUrl: true
+        }
+      },
+      subEventCheckIns: {
+        include: {
+          subEvent: {
+            select: {
+              id: true,
+              title: true
+            }
+          }
         }
       }
     },
@@ -553,10 +665,44 @@ export const updateEvent = asyncHandler(async (req: AuthRequest, res: Response) 
   if (req.body.customFields !== undefined) updateData.customFields = req.body.customFields;
   if (req.body.useCustomBadge !== undefined) updateData.useCustomBadge = req.body.useCustomBadge;
 
+  // Handle sub-events syncing
+  if (req.body.subEvents !== undefined) {
+    const incomingSubEvents = req.body.subEvents as any[];
+    const existingSubEvents = await prisma.subEvent.findMany({ where: { eventId: id } });
+    const existingIds = existingSubEvents.map(se => se.id);
+    
+    const incomingIds = incomingSubEvents.filter(se => se.id).map(se => se.id);
+    const toDelete = existingIds.filter(eid => !incomingIds.includes(eid));
+    
+    updateData.subEvents = {
+      deleteMany: { id: { in: toDelete } },
+      update: incomingSubEvents.filter(se => se.id && existingIds.includes(se.id)).map(se => ({
+        where: { id: se.id },
+        data: {
+          title: se.title,
+          description: se.description,
+          startAt: new Date(se.startAt),
+          endAt: new Date(se.endAt),
+          location: se.location
+        }
+      })),
+      create: incomingSubEvents.filter(se => !se.id).map(se => ({
+        title: se.title,
+        description: se.description,
+        startAt: new Date(se.startAt),
+        endAt: new Date(se.endAt),
+        location: se.location
+      }))
+    };
+  }
+
   const updatedEvent = await prisma.event.update({
     where: { id },
     data: updateData,
     include: {
+      subEvents: {
+        orderBy: { startAt: 'asc' }
+      },
       organizer: {
         select: {
           id: true,
@@ -1078,16 +1224,23 @@ async function generateBadgePDF(registrationId: string, token: string): Promise<
       // Box: 75.2mm x 115.8mm (94.5w x 12.2h)
       const nameBox = { x: 75.2 * mmToPt, y: 115.8 * mmToPt, w: 94.5 * mmToPt, h: 12.2 * mmToPt };
       const attendeeName = (registration.user.displayName || registration.user.email).toUpperCase();
-      let nameSize = 15 * mmToPt;
+      
+      // Starting with 15mm as the peak size, matching frontend mm(15)
+      let nameSize = 15 * mmToPt; 
       doc.font('Helvetica-Bold').fontSize(nameSize);
-      while (doc.widthOfString(attendeeName) > nameBox.w * 0.95 && nameSize > 8) {
+      
+      // Iterative Shrink to fit width AND height constraints
+      while ((doc.widthOfString(attendeeName) > nameBox.w * 0.96 || nameSize > nameBox.h * 1.5) && nameSize > 8) {
         nameSize -= 0.5;
         doc.fontSize(nameSize);
       }
       
-      const vCenterName = nameBox.y + (nameBox.h - nameSize * 1.25) / 2;
-      // Shadow layer
-      doc.fillColor('#000000').fillOpacity(0.35).text(attendeeName, nameBox.x + 0.5, vCenterName + 0.5, { width: nameBox.w, align: 'center' });
+      // Refined vertical centering for PDFKit (which uses top baseline by default)
+      // Using 0.75 as an approximate cap-height factor for Helvetica-Bold
+      const vCenterName = nameBox.y + (nameBox.h - nameSize * 0.75) / 2;
+      
+      // Shadow layer (Deep Precision)
+      doc.fillColor('#000000').fillOpacity(0.35).text(attendeeName, nameBox.x + 0.6, vCenterName + 0.6, { width: nameBox.w, align: 'center' });
       // Main layer
       doc.fillColor('#FFFFFF').fillOpacity(1).text(attendeeName, nameBox.x, vCenterName, { width: nameBox.w, align: 'center' });
 
