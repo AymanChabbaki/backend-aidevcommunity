@@ -6,6 +6,8 @@ import QRCode from 'qrcode';
 import PDFDocument from 'pdfkit';
 import { v4 as uuidv4 } from 'uuid';
 import { sendEmail, emailTemplates } from '../services/email.service';
+
+
 import { format } from 'date-fns';
 import prisma from '../lib/prisma';
 import bcrypt from 'bcryptjs';
