@@ -96,6 +96,9 @@ export const getAllEvents = asyncHandler(async (req: AuthRequest, res: Response)
             photoUrl: true
           }
         },
+        subEvents: {
+          orderBy: { startAt: 'asc' }
+        },
         _count: {
           select: { registrations: true }
         }
