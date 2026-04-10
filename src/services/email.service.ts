@@ -72,10 +72,24 @@ export const emailTemplates = {
       eventId?: string;
       badgeDownloadUrl?: string;
       frontendUrl?: string;
+      subEvents?: Array<{
+        title: string;
+        startAt: Date | string;
+        endAt: Date | string;
+        location?: string;
+      }>;
     }
   ) => {
-    const fe = eventDetails?.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5173';
+    const fe = eventDetails?.frontendUrl || process.env.FRONTEND_URL || 'https://aidevcommunity.vercel.app';
     const eventUrl = eventDetails?.eventId ? `${fe}/events/${eventDetails.eventId}` : `${fe}/events`;
+    
+    // Sort sub-events if they exist
+    const subEvents = eventDetails?.subEvents ? [...eventDetails.subEvents].sort((a, b) => 
+      new Date(a.startAt).getTime() - new Date(b.startAt).getTime()
+    ) : [];
+
+    const logoUrl = 'https://aidevcommunity.vercel.app/logo.png';
+
     return {
       subject: `✅ Registration Approved – ${eventTitle}`,
       html: `
@@ -83,112 +97,129 @@ export const emailTemplates = {
         <html>
         <head>
           <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
-            body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; background: #f0f2f5; }
-            .wrapper { background: #f0f2f5; padding: 30px 10px; }
-            .container { max-width: 620px; margin: 0 auto; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
-            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 36px 30px 24px; text-align: center; }
-            .header .success-icon { font-size: 52px; display: block; margin-bottom: 10px; }
-            .header h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -0.5px; }
-            .header p { margin: 0; opacity: 0.9; font-size: 15px; }
-            .event-banner { width: 100%; max-height: 200px; object-fit: cover; display: block; }
-            .content { background: #ffffff; padding: 30px; }
-            .greeting { font-size: 16px; margin-bottom: 20px; }
-            .details-card { background: #f8f6ff; border: 1px solid #e0d9ff; border-radius: 12px; padding: 20px 24px; margin: 20px 0; }
-            .details-card h2 { margin: 0 0 16px; font-size: 18px; color: #5a47d6; border-bottom: 2px solid #e0d9ff; padding-bottom: 8px; }
-            .detail-row { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; font-size: 14px; }
-            .detail-icon { font-size: 16px; width: 22px; flex-shrink: 0; margin-top: 1px; }
-            .detail-label { font-weight: 600; color: #4a4a6a; min-width: 90px; }
-            .detail-value { color: #333; }
-            .badge-cta { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #7dd3fc; border-radius: 12px; padding: 24px; margin: 24px 0; text-align: center; }
-            .badge-cta h3 { margin: 0 0 6px; font-size: 16px; color: #0369a1; }
-            .badge-cta p { margin: 0 0 16px; font-size: 13px; color: #555; }
-            .comment-box { background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 20px 0; font-size: 14px; }
-            .comment-box strong { color: #92400e; }
-            .button { display: inline-block; padding: 13px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; margin: 8px 4px; }
-            .button-green { display: inline-block; padding: 13px 32px; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; margin: 8px 4px; }
-            .button-outline { display: inline-block; padding: 11px 28px; background: transparent; color: #667eea !important; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; border: 2px solid #667eea; margin: 8px 4px; }
-            .cta { text-align: center; margin: 24px 0 8px; }
-            .footer { background: #f8f6ff; text-align: center; padding: 20px 30px; color: #888; font-size: 12px; }
+            body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1a1a1a; margin: 0; background-color: #f4f7fa; }
+            .wrapper { width: 100%; table-layout: fixed; background-color: #f4f7fa; padding-bottom: 40px; }
+            .main { background-color: #ffffff; margin: 0 auto; width: 100%; max-width: 600px; border-spacing: 0; color: #1a1a1a; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+            .header { background: #09090b; padding: 40px 30px; text-align: center; }
+            .logo { width: 160px; height: auto; margin-bottom: 20px; }
+            .header h1 { color: #ffffff; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+            .header p { color: rgba(255,255,255,0.7); margin: 8px 0 0; font-size: 16px; font-weight: 500; }
+            .banner { width: 100%; display: block; border-bottom: 4px solid #3b82f6; }
+            .content { padding: 40px 30px; }
+            .greeting { font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #000; }
+            .intro { font-size: 16px; margin-bottom: 30px; color: #4b5563; }
+            .card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; margin-bottom: 30px; }
+            .card h2 { margin: 0 0 20px; font-size: 18px; color: #111827; display: flex; align-items: center; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; }
+            .detail-row { display: flex; margin-bottom: 12px; font-size: 14px; }
+            .detail-label { font-weight: 700; color: #6b7280; width: 90px; flex-shrink: 0; }
+            .detail-value { color: #111827; font-weight: 500; }
+            
+            .agenda-section { margin-top: 30px; }
+            .agenda-section h3 { font-size: 18px; color: #111827; margin-bottom: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+            .agenda-item { background: #ffffff; border-left: 4px solid #3b82f6; padding: 16px; margin-bottom: 12px; border-radius: 0 8px 8px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
+            .agenda-title { font-weight: 700; color: #111827; margin-bottom: 4px; display: block; }
+            .agenda-time { font-size: 13px; color: #3b82f6; font-weight: 600; }
+            .agenda-location { font-size: 12px; color: #6b7280; margin-top: 4px; display: block; }
+
+            .badge-box { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px dashed #3b82f6; border-radius: 12px; padding: 30px; margin: 30px 0; text-align: center; }
+            .badge-box h3 { margin: 0 0 12px; font-size: 18px; color: #1e40af; }
+            .badge-box p { font-size: 14px; color: #3b82f6; margin-bottom: 20px; }
+
+            .btn-primary { display: inline-block; background-color: #3b82f6; color: #ffffff !important; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 15px; transition: all 0.3s ease; }
+            .btn-secondary { display: inline-block; background-color: #10b981; color: #ffffff !important; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; }
+            .btn-outline { display: inline-block; border: 2px solid #3b82f6; color: #3b82f6 !important; padding: 12px 26px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px; margin-top: 10px; }
+
+            .comment-box { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin: 24px 0; border-radius: 4px; font-style: italic; color: #92400e; font-size: 14px; }
+            .footer { padding: 40px; text-align: center; font-size: 12px; color: #6b7280; background: #f9fafb; }
+            .social-links { margin-bottom: 16px; }
+            .social-links a { color: #3b82f6; text-decoration: none; margin: 0 10px; font-weight: 600; }
           </style>
         </head>
         <body>
           <div class="wrapper">
-            <div class="container">
-              <div class="header">
-                <span class="success-icon">🎉</span>
-                <h1>You're In!</h1>
-                <p>Registration Approved</p>
-              </div>
-              ${eventDetails?.imageUrl ? `<img src="${eventDetails.imageUrl}" alt="${eventTitle}" class="event-banner" />` : ''}
-              <div class="content">
-                <p class="greeting">Hi <strong>${userName}</strong>,</p>
-                <p>Great news! Your registration for <strong>${eventTitle}</strong> has been approved. We can't wait to see you there!</p>
+            <table class="main" align="center" width="100%">
+              <tr>
+                <td class="header">
+                  <img src="${logoUrl}" alt="AI Dev Community" class="logo">
+                  <h1>SECURE ENTRY GRANTED</h1>
+                  <p>Registration Official Approved</p>
+                </td>
+              </tr>
+              ${eventDetails?.imageUrl ? `<tr><td><img src="${eventDetails.imageUrl}" alt="${eventTitle}" class="banner" width="600"></td></tr>` : ''}
+              <tr>
+                <td class="content">
+                  <p class="greeting">System Access: ${userName}</p>
+                  <p class="intro">Confirmation successful. Your credentials for <strong>${eventTitle}</strong> have been verified and access is authorized. Synchronize your agenda for the following schedule:</p>
 
-                <div class="details-card">
-                  <h2>📋 Event Details</h2>
-                  <div class="detail-row">
-                    <span class="detail-icon">📌</span>
-                    <span class="detail-label">Event</span>
-                    <span class="detail-value"><strong>${eventTitle}</strong></span>
+                  <div class="card">
+                    <h2>📋 EVENT PROTOCOL</h2>
+                    <div class="detail-row">
+                      <span class="detail-label">EVENT:</span>
+                      <span class="detail-value">${eventTitle}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">START:</span>
+                      <span class="detail-value">${eventDate}</span>
+                    </div>
+                    ${eventDetails?.endDate ? `
+                    <div class="detail-row">
+                      <span class="detail-label">END:</span>
+                      <span class="detail-value">${eventDetails.endDate}</span>
+                    </div>` : ''}
+                    ${eventDetails?.location ? `
+                    <div class="detail-row">
+                      <span class="detail-label">LOCATION:</span>
+                      <span class="detail-value">${eventDetails.location}</span>
+                    </div>` : ''}
                   </div>
-                  ${eventDetails?.category ? `
-                  <div class="detail-row">
-                    <span class="detail-icon">🏷️</span>
-                    <span class="detail-label">Category</span>
-                    <span class="detail-value">${eventDetails.category}</span>
+
+                  ${comment ? `<div class="comment-box"><strong>MESSAGE FROM INTEL:</strong> "${comment}"</div>` : ''}
+
+                  ${subEvents.length > 0 ? `
+                  <div class="agenda-section">
+                    <h3>📅 EVENT AGENDA (SESSION SYNC)</h3>
+                    ${subEvents.map(se => `
+                      <div class="agenda-item">
+                        <span class="agenda-title">${se.title}</span>
+                        <span class="agenda-time">⏱️ ${new Date(se.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — ${new Date(se.endAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        ${se.location ? `<span class="agenda-location">📍 ${se.location}</span>` : ''}
+                      </div>
+                    `).join('')}
                   </div>` : ''}
-                  <div class="detail-row">
-                    <span class="detail-icon">📅</span>
-                    <span class="detail-label">Start</span>
-                    <span class="detail-value">${eventDate}</span>
+
+                  <div class="badge-box">
+                    <h3>🎟️ ENTRY BADGE SECURED</h3>
+                    <p>Your unique access token is ready for download in PDF format.</p>
+                    <a href="${eventDetails?.badgeDownloadUrl || eventUrl}" class="btn-secondary">DOWNLOAD BADGE (PDF)</a>
                   </div>
-                  ${eventDetails?.endDate ? `
-                  <div class="detail-row">
-                    <span class="detail-icon">🏁</span>
-                    <span class="detail-label">End</span>
-                    <span class="detail-value">${eventDetails.endDate}</span>
-                  </div>` : ''}
-                  ${eventDetails?.location ? `
-                  <div class="detail-row">
-                    <span class="detail-icon">${eventDetails.locationType === 'ONLINE' ? '💻' : '📍'}</span>
-                    <span class="detail-label">Location</span>
-                    <span class="detail-value">${eventDetails.location}</span>
-                  </div>` : ''}
-                  ${eventDetails?.description ? `
-                  <div class="detail-row">
-                    <span class="detail-icon">📝</span>
-                    <span class="detail-label">About</span>
-                    <span class="detail-value">${eventDetails.description}</span>
-                  </div>` : ''}
-                </div>
 
-                ${comment ? `<div class="comment-box"><strong>💬 Message from organizer:</strong><br/>${comment}</div>` : ''}
+                  <div style="text-align: center; margin-top: 40px;">
+                    <a href="${eventUrl}" class="btn-primary">ACCESS EVENT PORTAL</a>
+                    <br/>
+                    <a href="${fe}/dashboard" class="btn-outline">VIEW DASHBOARD</a>
+                  </div>
 
-                <div class="badge-cta">
-                  <h3>🪪 Your Entry Badge is Ready</h3>
-                  <p>Click the button below to instantly download your badge PDF — no login required.</p>
-                  <a href="${eventDetails?.badgeDownloadUrl || eventUrl}" class="button-green">⬇️ Download My Badge (PDF)</a>
-                </div>
-
-                <div class="cta">
-                  <a href="${eventUrl}" class="button">View Event</a>
-                  <a href="${fe}/dashboard" class="button-outline">My Dashboard</a>
-                </div>
-
-                <p style="font-size:13px; color:#888; margin-top:24px;">Have questions? Reply to this email or visit our <a href="${fe}/contact" style="color:#667eea;">contact page</a>.</p>
-                <p style="font-size:14px;">Best regards,<br/><strong>AI Dev Community Team</strong></p>
-              </div>
-              <div class="footer">
-                <p>© ${new Date().getFullYear()} AI Dev Community. All rights reserved.</p>
-                <p>You received this email because you registered for an event on AI Dev Community.</p>
-              </div>
-            </div>
+                  <p style="margin-top: 40px; font-size: 14px; color: #4b5563;">Best regards,<br/><strong style="color: #000;">AI Dev Community Global Command</strong></p>
+                </td>
+              </tr>
+              <tr>
+                <td class="footer">
+                  <div class="social-links">
+                    <a href="https://aidevcommunity.vercel.app">Official Website</a>
+                    <a href="${fe}/contact">Support Core</a>
+                  </div>
+                  <p>© 2026 AI Dev Community. Pulse Network Synchronization Complete.</p>
+                  <p>You are receiving this encrypted transmission because of your registered status.</p>
+                </td>
+              </tr>
+            </table>
           </div>
         </body>
         </html>
       `,
-      text: `Hi ${userName},\n\nYour registration for ${eventTitle} has been approved!\n\nEvent Details:\n- Event: ${eventTitle}\n- Start: ${eventDate}${eventDetails?.endDate ? '\n- End: ' + eventDetails.endDate : ''}${eventDetails?.location ? '\n- Location: ' + eventDetails.location : ''}${eventDetails?.category ? '\n- Category: ' + eventDetails.category : ''}${comment ? '\n\nMessage from organizer: ' + comment : ''}\n\nDownload your badge PDF directly: ${eventDetails?.badgeDownloadUrl || eventUrl}\n\nBest regards,\nAI Dev Community Team`
+      text: `Hi ${userName},\n\nYour registration for ${eventTitle} has been approved!\n\nEvent Details:\n- Event: ${eventTitle}\n- Start: ${eventDate}${eventDetails?.endDate ? '\n- End: ' + eventDetails.endDate : ''}${eventDetails?.location ? '\n- Location: ' + eventDetails.location : ''}\n\nAGENDA:\n${subEvents.map(se => `- ${se.title} (${new Date(se.startAt).toLocaleTimeString()} - ${new Date(se.endAt).toLocaleTimeString()}) @ ${se.location || 'Nexus Hall'}`).join('\n')}\n\nDownload your badge: ${eventDetails?.badgeDownloadUrl || eventUrl}\n\nBest regards,\nAI Dev Community Team`
     };
   },
 

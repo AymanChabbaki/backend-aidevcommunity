@@ -840,7 +840,11 @@ export const approveRegistration = asyncHandler(async (req: AuthRequest, res: Re
   const registration = await prisma.registration.findUnique({
     where: { id },
     include: {
-      event: true,
+      event: {
+        include: {
+          subEvents: true
+        }
+      },
       user: {
         select: {
           id: true,
@@ -905,7 +909,8 @@ export const approveRegistration = asyncHandler(async (req: AuthRequest, res: Re
       registrationId: registration.id,
       eventId: registration.eventId,
       badgeDownloadUrl,
-      frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+      frontendUrl: process.env.FRONTEND_URL || 'https://aidevcommunity.vercel.app',
+      subEvents: (registration.event as any).subEvents || [],
     }
   );
 
